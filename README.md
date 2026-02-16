@@ -82,3 +82,29 @@ This project is licensed under MIT. See `Frontend/LICENSE` for details.
 
 If you need help, open an issue in this repository.
  
+## Git LFS
+
+This repository uses Git Large File Storage (Git LFS) for large media assets (video files). If you plan to clone, contribute, or run the project, please install and enable Git LFS locally before pulling the repository to ensure large files download correctly.
+
+Install and enable Git LFS (one-time):
+
+```bash
+git lfs install
+```
+
+Fetch LFS objects after cloning (or to ensure local checkout has large files):
+
+```bash
+git lfs pull
+```
+
+Tracked file patterns include the project's video assets, for example: `Frontend/public/assets/video/*.mp4`.
+
+If you add large media files in the future, track them with:
+
+```bash
+git lfs track "Frontend/public/assets/video/*.mp4"
+git add .gitattributes
+git commit -m "Track video assets with Git LFS"
+```
+ 
