@@ -1,0 +1,345 @@
+/* Login.module.css - Split Screen Redesign */
+.container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: #0a0f0c;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+}
+
+/* LEFT SIDE - VISUAL */
+.visualSide {
+  flex: 1.25;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 110px 60px 60px 60px;
+  overflow: hidden;
+}
+
+.videoBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+
+.visualOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg,
+      rgba(10, 15, 12, 0.3) 0%,
+      rgba(10, 15, 12, 0.6) 50%,
+      rgba(10, 15, 12, 0.95) 100%);
+  z-index: 2;
+}
+
+.visualContent {
+  position: relative;
+  z-index: 3;
+  max-width: 600px;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.brandLogo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.logoIcon {
+  color: #4caf50;
+  filter: drop-shadow(0 0 10px rgba(76, 175, 80, 0.4));
+}
+
+.brandName {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+
+.visualTitle {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #ffffff;
+  margin-bottom: 24px;
+  letter-spacing: -1px;
+}
+
+.visualText {
+  font-size: 18px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 40px;
+}
+
+.visualQuote {
+  font-size: 16px;
+  font-style: italic;
+  color: rgba(76, 175, 80, 0.9);
+  border-left: 4px solid #4caf50;
+  padding-left: 16px;
+}
+
+/* RIGHT SIDE - FORM */
+.formSide {
+  flex: 1;
+  /* 45% width approx */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 110px 40px 40px 40px;
+  background: #0a0f0c;
+  position: relative;
+  z-index: 10;
+  box-shadow: -20px 0 50px rgba(0, 0, 0, 0.5);
+  /* Shadow over video */
+}
+
+/* Use a cleaner simpler form container instead of glass card */
+.formContainer {
+  width: 100%;
+  max-width: 420px;
+  animation: fadeIn 0.8s ease-out 0.2s both;
+}
+
+.header {
+  margin-bottom: 40px;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 16px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  transition: color 0.3s ease;
+}
+
+.input {
+  width: 100%;
+  padding: 16px 16px 16px 48px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 15px;
+  transition: all 0.3s ease;
+}
+
+.input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #4caf50;
+  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.1);
+}
+
+.inputWrapper:focus-within .inputIcon {
+  color: #4caf50;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.passwordToggle:hover {
+  color: #ffffff;
+}
+
+.forgotPassword {
+  text-align: right;
+  margin-top: -8px;
+}
+
+.forgotLink {
+  color: #4caf50;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
+.submitButton {
+  padding: 16px;
+  background: #4caf50;
+  /* Solid bold color or gradient */
+  background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  margin-top: 12px;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.errorMessage {
+  padding: 14px;
+  background: rgba(255, 82, 82, 0.1);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+  border-radius: 8px;
+  color: #ff5252;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 32px 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.signupPrompt {
+  text-align: center;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.loginLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #4caf50;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.loginLink:hover {
+  text-decoration: underline;
+}
+
+/* ANIMATION */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* RESPONSIVE */
+@media (max-width: 968px) {
+  .container {
+    flex-direction: column;
+    height: auto;
+    overflow-y: auto;
+  }
+
+  .visualSide {
+    flex: 0 0 300px;
+    /* Fixed height header on mobile */
+    padding: 100px 30px 30px 30px;
+  }
+
+  .visualTitle {
+    font-size: 36px;
+  }
+
+  .formSide {
+    flex: 1;
+    padding: 40px 20px;
+    background: #0a0f0c;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    margin-top: -30px;
+    /* Overlap effect */
+  }
+}

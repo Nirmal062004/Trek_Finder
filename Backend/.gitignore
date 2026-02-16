@@ -1,0 +1,16 @@
+# Backend (Supabase / Deno)
+/.deno/
+Backend/functions/.deno/
+.supabase/
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# DB migrations
+Backend/migrations/*.sql
