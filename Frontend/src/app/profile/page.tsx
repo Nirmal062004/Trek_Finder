@@ -32,6 +32,9 @@ export default function ProfilePage() {
     const [userCommunities, setUserCommunities] = useState<Community[]>([]);
     const [completedTreks, setCompletedTreks] = useState<(number | string)[]>([]); // Array of Trek IDs
 
+    const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
+    const [lastCompletedTrek, setLastCompletedTrek] = useState<any>(null);
+
     // -- Avatar State --
     const [avatarSeed, setAvatarSeed] = useState<string>('');
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
@@ -115,6 +118,12 @@ export default function ProfilePage() {
             newCompleted = completedTreks.filter(id => id !== trekId);
         } else {
             newCompleted = [...completedTreks, trekId];
+            // Trigger completion overlay
+            const trek = savedTreks.find(t => t.id === trekId);
+            if (trek) {
+                setLastCompletedTrek(trek);
+                setShowCompletionOverlay(true);
+            }
         }
         setCompletedTreks(newCompleted);
         localStorage.setItem('trek_finder_completed_treks', JSON.stringify(newCompleted));
@@ -298,6 +307,55 @@ export default function ProfilePage() {
         </div>
     );
 
+    const renderCompletionOverlay = () => {
+        if (!showCompletionOverlay || !lastCompletedTrek) return null;
+
+        return (
+            <div className={styles['completion-overlay']}>
+                <div className={styles['confetti-container']}>
+                    {Array.from({ length: 20 }).map((_, i) => (
+                        <div key={i} className={styles.confetti} style={{
+                            left: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 2}s`,
+                            backgroundColor: ['#2bff88', '#ffeb3b', '#42a5f5', '#ff4444'][Math.floor(Math.random() * 4)]
+                        }} />
+                    ))}
+                </div>
+
+                <div className={styles['success-card']}>
+                    <div className={styles['success-icon-wrapper']}>
+                        <Check size={48} className={styles['success-icon']} />
+                    </div>
+                    <h2 className={styles['success-title']}>CONGRATULATIONS!</h2>
+                    <p className={styles['success-subtitle']}>You've conquered another trail!</p>
+
+                    <div className={styles['trek-completion-info']}>
+                        <div className={styles['trek-name']}>{lastCompletedTrek.tags?.name || lastCompletedTrek.tags?.name_en || `Trek #${lastCompletedTrek.id}`}</div>
+                        <div className={styles['xp-badge']}>+50 XP Earned</div>
+                    </div>
+
+                    <div className={styles['overlay-actions']}>
+                        <button
+                            className={styles['share-btn']}
+                            onClick={() => {
+                                setShowCompletionOverlay(false);
+                                setActiveTab('contributions');
+                            }}
+                        >
+                            <PenTool size={18} /> Share Your Story
+                        </button>
+                        <button
+                            className={styles['dismiss-btn']}
+                            onClick={() => setShowCompletionOverlay(false)}
+                        >
+                            Keep Exploring
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={styles['profile-page']}>
             {/* Header */}
@@ -464,6 +522,8 @@ export default function ProfilePage() {
                     </div>
                 </div>
             )}
+
+            {renderCompletionOverlay()}
         </div>
     );
 };

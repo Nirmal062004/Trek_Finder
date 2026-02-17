@@ -385,7 +385,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 setStatus(`📍 Found: ${location.name}. Searching for treks here...`);
 
                 setLoading(true);
-                const searchRadius = radius * 1000;
+                const searchRadius = (pendingRadius || radius) * 1000;
                 const overpassQuery = `
                                         [out:json][timeout:25];
                                         (
@@ -453,7 +453,8 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
 
     const handleMapClick = async (lat: number, lng: number) => {
         setLoading(true);
-        setStatus('🔍 Scanning 50km and 100km radius for treks...');
+
+        setStatus(`🔍 Scanning within ${pendingRadius || radius} km for treks...`);
 
         setMarkers([{ coords: [lat, lng], title: 'Search Location' }]);
         setUserMarkerSet(true);
@@ -465,7 +466,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
         setFitBounds(undefined);
 
         try {
-            const searchRadius = radius * 1000;
+            const searchRadius = (pendingRadius || radius) * 1000;
             const query = `
                             [out:json][timeout:25];
                             (
@@ -798,7 +799,10 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 const lat = markers.length > 0 ? markers[0].coords[0] : mapCenter[0];
                 const lng = markers.length > 0 ? markers[0].coords[1] : mapCenter[1];
                 const serverResults = await fetchTreksFromSupabase({ name: trekNameFilter, lat, lng, radiusKm: radius, difficulty: filters.difficulty, duration: filters.duration, sortBy: filters.sortBy });
-                if (!cancelled && serverResults) {
+                
+                // Only use server results if they are non-empty. 
+                // If they are empty, we fall back to OSM results (allResults).
+                if (!cancelled && serverResults && serverResults.length > 0) {
                     const withSaved = serverResults.map((t: Trek) => ({ ...t, isSaved: savedIds.has(t.id) }));
                     let final = [...withSaved];
                     if (filters.duration !== 'all') {
@@ -849,7 +853,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
 
         doFilter();
         return () => { cancelled = true; };
-    }, [filters, allResults, trekNameFilter, savedTreks, markers, mapCenter]);
+    }, [filters, allResults, trekNameFilter, savedTreks, markers, mapCenter, radius]);
 
     return (
         <div className={styles['trek-finder-bg']}>
@@ -901,12 +905,11 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                     <div className={styles['controls']}>
                         <div className={styles['control-group']}>
                             <label>Search Radius</label>
-                            <select value={pendingRadius} onChange={(e) => setPendingRadius(Number(e.target.value))} disabled={loading}>
-                                <option value={5}>5 km (Dense)</option>
-                                <option value={15}>15 km</option>
-                                <option value={30}>30 km (Default)</option>
-                                <option value={50}>50 km (Max)</option>
-                            </select>
+                                <select value={pendingRadius} onChange={(e) => setPendingRadius(Number(e.target.value))} disabled={loading}>
+                                    <option value={60}>60 km (Default)</option>
+                                    <option value={100}>100 km</option>
+                                    <option value={150}>150 km</option>
+                                </select>
                         </div>
                         <div className={styles['control-group']}>
                             <label>Difficulty</label>

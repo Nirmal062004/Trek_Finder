@@ -1,9 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import homeStyles from '@/styles/Home.module.css';
 import { Mountain, ArrowRight, Camera, Target, Zap, Shield, Users, MapPin, Ruler, Circle, Clock, Rocket, Mail, Github, Linkedin, Image as ImageIcon, Star } from 'lucide-react';
+import { backendAPI } from '@/shared/services/api';
+
+type Trek = any;
 
 export default function HomePage() {
     const router = useRouter();
@@ -11,6 +14,43 @@ export default function HomePage() {
     const handleNavigate = (path: string) => {
         router.push(`/${path}`);
     };
+
+    const [stats, setStats] = useState({ trails: 0, trekkers: 0, reviews: 0 });
+    const [topTreks, setTopTreks] = useState<Trek[]>([]);
+
+    useEffect(() => {
+        let mounted = true;
+        const load = async () => {
+            try {
+                const [treks, users, reviews] = await Promise.all([
+                    backendAPI.getTreks().catch(() => []),
+                    backendAPI.getUsers().catch(() => []),
+                    backendAPI.getReviews().catch(() => []),
+                ]);
+
+                if (!mounted) return;
+
+                setStats({
+                    trails: Array.isArray(treks) ? treks.length : 0,
+                    trekkers: Array.isArray(users) ? users.length : 0,
+                    reviews: Array.isArray(reviews) ? reviews.length : 0,
+                });
+
+                // Choose top treks by rating or newest
+                let picks = Array.isArray(treks) ? [...treks] : [];
+                picks.sort((a: any, b: any) => {
+                    const ra = (a.rating || a.avg_rating || 0);
+                    const rb = (b.rating || b.avg_rating || 0);
+                    return rb - ra;
+                });
+                setTopTreks(picks.slice(0, 4));
+            } catch (e) {
+                console.error('Failed to load home data', e);
+            }
+        };
+        load();
+        return () => { mounted = false; };
+    }, []);
 
     return (
         <div className={homeStyles['home-container']}>
@@ -25,7 +65,7 @@ export default function HomePage() {
                         <span className={homeStyles['hero-highlight']}> Adventure</span>
                     </h1>
                     <p className={homeStyles['hero-description']}>
-                        From the Himalayas to the Western Ghats, find your perfect trek among 500+ verified trails
+                        From the Himalayas to the Western Ghats — {stats.trails} trails, {stats.trekkers} trekkers, and {stats.reviews} community reviews helping you choose the perfect route
                     </p>
                     <div className={homeStyles['hero-buttons']}>
                         <button
@@ -48,17 +88,17 @@ export default function HomePage() {
                     {/* Floating Stats */}
                     <div className={homeStyles['floating-stats']}>
                         <div className={homeStyles['stat-item']}>
-                            <span className={homeStyles['stat-value']}>500+</span>
+                            <span className={homeStyles['stat-value']}>{stats.trails || '—'}</span>
                             <span className={homeStyles['stat-text']}>Trails</span>
                         </div>
                         <div className={homeStyles['stat-divider']}></div>
                         <div className={homeStyles['stat-item']}>
-                            <span className={homeStyles['stat-value']}>5K+</span>
+                            <span className={homeStyles['stat-value']}>{stats.trekkers || '—'}</span>
                             <span className={homeStyles['stat-text']}>Trekkers</span>
                         </div>
                         <div className={homeStyles['stat-divider']}></div>
                         <div className={homeStyles['stat-item']}>
-                            <span className={homeStyles['stat-value']}>15K+</span>
+                            <span className={homeStyles['stat-value']}>{stats.reviews || '—'}</span>
                             <span className={homeStyles['stat-text']}>Reviews</span>
                         </div>
                     </div>
@@ -133,105 +173,50 @@ export default function HomePage() {
                 </div>
 
                 <div className={homeStyles['destinations-grid']}>
-                    <div className={homeStyles['destination-card']} onClick={() => handleNavigate('finder')} style={{ cursor: 'pointer' }}>
-                        <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
-                        <div className={homeStyles['destination-content']}>
-                            <div className={homeStyles['destination-header']}>
-                                <h3 className={homeStyles['destination-name']}>Valley of Flowers</h3>
-                                <span className={homeStyles['destination-rating']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#FFD700" color="#FFD700" /> 4.8</span>
-                            </div>
-                            <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> Uttarakhand</p>
-                            <div className={homeStyles['destination-meta']}>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Ruler size={14} /></span>
-                                    65 km
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Circle size={14} fill="#ff4444" color="#ff4444" /></span>
-                                    Moderate
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Clock size={14} /></span>
-                                    5-6 days
-                                </span>
+                    {topTreks.length === 0 ? (
+                        <div className={homeStyles['destination-card']} style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 40 }}>
+                            <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
+                            <div className={homeStyles['destination-content']}>
+                                <h3 className={homeStyles['destination-name']}>No treks available</h3>
+                                <p className={homeStyles['destination-location']}>Try again later</p>
                             </div>
                         </div>
-                    </div>
-
-                    <div className={homeStyles['destination-card']} onClick={() => handleNavigate('finder')} style={{ cursor: 'pointer' }}>
-                        <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
-                        <div className={homeStyles['destination-content']}>
-                            <div className={homeStyles['destination-header']}>
-                                <h3 className={homeStyles['destination-name']}>Kedarkantha</h3>
-                                <span className={homeStyles['destination-rating']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#FFD700" color="#FFD700" /> 4.9</span>
-                            </div>
-                            <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> Uttarakhand</p>
-                            <div className={homeStyles['destination-meta']}>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Ruler size={14} /></span>
-                                    42 km
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Circle size={14} fill="#00C851" color="#00C851" /></span>
-                                    Easy
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Clock size={14} /></span>
-                                    4-5 days
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={homeStyles['destination-card']} onClick={() => handleNavigate('finder')} style={{ cursor: 'pointer' }}>
-                        <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
-                        <div className={homeStyles['destination-content']}>
-                            <div className={homeStyles['destination-header']}>
-                                <h3 className={homeStyles['destination-name']}>Hampta Pass</h3>
-                                <span className={homeStyles['destination-rating']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#FFD700" color="#FFD700" /> 4.7</span>
-                            </div>
-                            <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> Himachal Pradesh</p>
-                            <div className={homeStyles['destination-meta']}>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Ruler size={14} /></span>
-                                    32 km
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Circle size={14} fill="#ffbb33" color="#ffbb33" /></span>
-                                    Hard
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Clock size={14} /></span>
-                                    5 days
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={homeStyles['destination-card']} onClick={() => handleNavigate('finder')} style={{ cursor: 'pointer' }}>
-                        <div className={homeStyles['destination-image']}><ImageIcon size={64} /></div>
-                        <div className={homeStyles['destination-content']}>
-                            <div className={homeStyles['destination-header']}>
-                                <h3 className={homeStyles['destination-name']}>Kudremukh</h3>
-                                <span className={homeStyles['destination-rating']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#FFD700" color="#FFD700" /> 4.6</span>
-                            </div>
-                            <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> Karnataka</p>
-                            <div className={homeStyles['destination-meta']}>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Ruler size={14} /></span>
-                                    48 km
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Circle size={14} fill="#ffbb33" color="#ffbb33" /></span>
-                                    Moderate
-                                </span>
-                                <span className={homeStyles['meta-item']}>
-                                    <span className={homeStyles['meta-icon']}><Clock size={14} /></span>
-                                    3-4 days
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    ) : (
+                        topTreks.map((trek: Trek, i: number) => {
+                            const name = trek.name || trek.title || `Trek #${trek.id || i}`;
+                            const rating = trek.rating || trek.avg_rating || 0;
+                            const location = trek.region || trek.state || trek.location || 'Unknown';
+                            const distance = trek.distance || trek.length || trek.km || '--';
+                            const difficulty = trek.difficulty || trek.level || 'Moderate';
+                            const duration = trek.duration || trek.days || trek.estimated_time || '-';
+                            return (
+                                <div key={trek.id || i} className={homeStyles['destination-card']} onClick={() => handleNavigate('finder')} style={{ cursor: 'pointer' }}>
+                                    <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
+                                    <div className={homeStyles['destination-content']}>
+                                        <div className={homeStyles['destination-header']}>
+                                            <h3 className={homeStyles['destination-name']}>{name}</h3>
+                                            <span className={homeStyles['destination-rating']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#FFD700" color="#FFD700" /> {Number(rating).toFixed(1)}</span>
+                                        </div>
+                                        <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {location}</p>
+                                        <div className={homeStyles['destination-meta']}>
+                                            <span className={homeStyles['meta-item']}>
+                                                <span className={homeStyles['meta-icon']}><Ruler size={14} /></span>
+                                                {distance}
+                                            </span>
+                                            <span className={homeStyles['meta-item']}>
+                                                <span className={homeStyles['meta-icon']}><Circle size={14} fill="#ff4444" color="#ff4444" /></span>
+                                                {difficulty}
+                                            </span>
+                                            <span className={homeStyles['meta-item']}>
+                                                <span className={homeStyles['meta-icon']}><Clock size={14} /></span>
+                                                {duration}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
 
                 <div className={homeStyles['view-all-wrapper']}>
