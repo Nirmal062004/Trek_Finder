@@ -7,7 +7,7 @@ import { authAPI, backendAPI } from '@/shared/services/api';
 interface AuthContextType {
     isAuthenticated: boolean;
     isAdmin: boolean;
-    user: { name: string; email: string } | null;
+    user: { id?: string; name: string; email: string } | null;
     login: () => Promise<void>;
     logout: () => void;
     loading: boolean;
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+    const [user, setUser] = useState<{ id?: string; name: string; email: string } | null>(null);
     const [loading, setLoading] = useState(true);
 
     const checkAuth = async () => {
@@ -42,9 +42,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const apiUser = verifyRes?.user ?? null;
             if (apiUser) {
                 setIsAuthenticated(true);
-                const name = apiUser.user_metadata?.name || apiUser.email?.split('@')[0] || 'User';
-                const email = apiUser.email || '';
-                setUser({ name, email });
+                    const name = apiUser.user_metadata?.name || apiUser.email?.split('@')[0] || 'User';
+                    const email = apiUser.email || '';
+                    // Persist id so UI components can scope localStorage per-user
+                    setUser({ id: apiUser.id, name, email });
 
                 // Secure Admin Check
                 try {

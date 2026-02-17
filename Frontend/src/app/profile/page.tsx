@@ -50,7 +50,9 @@ export default function ProfilePage() {
 
             // Sync Avatar
             const updateAvatar = () => {
-                const seed = localStorage.getItem('trek_finder_avatar_seed') || name;
+                const uid = (user as any)?.id || user.email || user.name || 'anon';
+                const storageKey = `trek_finder_avatar_seed_${uid}`;
+                const seed = localStorage.getItem(storageKey) || name;
                 setAvatarSeed(seed);
             };
 
@@ -135,7 +137,9 @@ export default function ProfilePage() {
 
     const saveNewAvatar = () => {
         setAvatarSeed(tempAvatarSeed);
-        localStorage.setItem('trek_finder_avatar_seed', tempAvatarSeed);
+        const uid = (user as any)?.id || user?.email || user?.name || 'anon';
+        const storageKey = `trek_finder_avatar_seed_${uid}`;
+        localStorage.setItem(storageKey, tempAvatarSeed);
         window.dispatchEvent(new Event('avatar-updated'));
         setShowAvatarEditor(false);
     };

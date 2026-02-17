@@ -31,7 +31,9 @@ const Navigation: React.FC<NavigationProps> = (_props) => {
   useEffect(() => {
     if (user) {
       const updateAvatar = () => {
-        const seed = localStorage.getItem('trek_finder_avatar_seed') || user.name || 'Anonymous';
+        const uid = (user as any)?.id || user.email || user.name || 'anon';
+        const storageKey = `trek_finder_avatar_seed_${uid}`;
+        const seed = localStorage.getItem(storageKey) || user.name || 'Anonymous';
         setAvatarSeed(seed);
       };
 

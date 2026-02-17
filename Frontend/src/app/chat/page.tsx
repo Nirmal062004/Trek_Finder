@@ -81,11 +81,13 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
             }
             setUserUID(uid);
 
-            // Load or init Avatar Seed
-            let seed = localStorage.getItem('trek_finder_avatar_seed');
+            // Load or init Avatar Seed (scoped per-user if possible)
+            const storageOwner = (user as any)?.id || uid;
+            const storageKey = `trek_finder_avatar_seed_${storageOwner}`;
+            let seed = localStorage.getItem(storageKey);
             if (!seed) {
                 seed = name; // Default to username
-                localStorage.setItem('trek_finder_avatar_seed', seed);
+                localStorage.setItem(storageKey, seed);
             }
             setAvatarSeed(seed);
 
@@ -235,7 +237,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
 
     const saveAvatar = () => {
         setAvatarSeed(tempAvatarSeed);
-        localStorage.setItem('trek_finder_avatar_seed', tempAvatarSeed);
+        const storageOwner = (user as any)?.id || userUID || 'anon';
+        const storageKey = `trek_finder_avatar_seed_${storageOwner}`;
+        localStorage.setItem(storageKey, tempAvatarSeed);
         window.dispatchEvent(new Event('avatar-updated')); // Notify Navigation
         setShowAvatarEditor(false);
     };
