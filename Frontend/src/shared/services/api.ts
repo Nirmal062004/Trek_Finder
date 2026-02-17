@@ -187,6 +187,15 @@ export const backendAPI = {
 		return data;
 	},
 
+	getUserProfile: async (id: string) => {
+		const { data, error } = await supabase.from('profiles').select('role, name, email').eq('id', id).single();
+		if (error) {
+			// If profile doesn't exist yet, return null
+			return null;
+		}
+		return data;
+	},
+
 	getTreks: async () => {
 		const { data, error } = await supabase.from('treks').select('*').order('created_at', { ascending: false });
 		if (error) {

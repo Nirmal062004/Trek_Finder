@@ -8,3 +8,16 @@ if (!SUPABASE_URL) throw new Error('SUPABASE_URL env missing');
 
 export const serviceAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 export const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+export const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+export function createAuthClient(req: Request) {
+    return (createClient as any)(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: {
+            headers: { Authorization: req.headers.get('Authorization')! },
+        },
+    });
+}

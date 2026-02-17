@@ -5,7 +5,7 @@ import { authAPI, backendAPI } from '@/shared/services/api';
 import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Users, Map, MessageSquare, Star, BarChart2, LogOut, Search, Plus, Trash2, Edit, X } from 'lucide-react';
+import { Users, Map, MessageSquare, Star, BarChart2, Search, Plus, Trash2, Edit, X, ArrowLeft } from 'lucide-react';
 import styles from '@/styles/Admin.module.css';
 
 const AdminPage: React.FC = () => {
@@ -207,8 +207,8 @@ const AdminPage: React.FC = () => {
                     <Star size={20} /> Reviews & Ratings
                 </button>
             </nav>
-            <button onClick={() => { logout(); router.push('/login'); }} className={styles.logoutBtn}>
-                <LogOut size={20} /> Sign Out
+            <button onClick={() => router.push('/')} className={styles.backBtn}>
+                <ArrowLeft size={20} /> Back
             </button>
         </div>
     );

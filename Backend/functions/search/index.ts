@@ -1,7 +1,11 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { anonClient } from '../_shared/supabaseClient.ts';
+import { anonClient, corsHeaders } from '../_shared/supabaseClient.ts';
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const body = await req.json();
     const lat = Number(body.lat);
@@ -25,13 +29,19 @@ serve(async (req) => {
     });
 
     if (res.error) {
-      return new Response(JSON.stringify({ error: res.error.message }), { status: 500 });
+      return new Response(JSON.stringify({ error: res.error.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ data: res.data }), {
-      headers: { 'content-type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

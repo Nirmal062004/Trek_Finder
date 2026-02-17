@@ -77,7 +77,8 @@
     box-shadow: 0 4px 6px -1px rgba(236, 72, 153, 0.2);
 }
 
-.logoutBtn {
+
+.backBtn {
     margin-top: auto;
     margin-bottom: 24px;
     margin-left: 16px;
@@ -87,16 +88,17 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #94a3b8;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid #334155;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
-.logoutBtn:hover {
-    background: rgba(239, 68, 68, 0.2);
+.backBtn:hover {
+    background: #334155;
+    color: #f1f5f9;
 }
 
 /* Main Content */

@@ -39,52 +39,13 @@ export default function LoginPage() {
             const response = await authAPI.login({ email, password });
 
             if (response.user) {
-                const displayName = response.user.user_metadata?.name || response.user.email || '';
-                const userEmail = response.user.email || '';
-                const isAdminUser = await checkAdminStatus(userEmail);
-                login(displayName, isAdminUser, userEmail);
+                await login();
                 router.push('/');
             }
         } catch (err: any) {
             setError(err?.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const checkAdminStatus = async (userEmail: string): Promise<boolean> => {
-        // TEMPORARY: Allow specific test email to be admin without DB check
-        if (userEmail === 'admin@test.com') {
-            return true;
-        }
-
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('role') // My SQL schema uses 'role', not 'is_admin'
-                .eq('email', userEmail)
-                .single();
-
-            if (error) {
-                // PGRST116 = JSON object requested, multiple (or no) results returned
-                // Treat as not found / not admin, suppress error log
-                if (error.code === 'PGRST116') {
-                    return false;
-                }
-                // PGRST205 = Relation does not exist (handled before, keeping for safety)
-                if (error.code === 'PGRST205') {
-                    console.warn('Profiles table not found in Supabase.');
-                    return false;
-                }
-                console.warn('Check admin status failed:', error.message);
-                return false;
-            }
-
-            // Check if role is 'admin' or 'superadmin'
-            return data?.role === 'admin' || data?.role === 'superadmin';
-        } catch (err: any) {
-            console.error('Unexpected error checking admin status:', err);
-            return false;
         }
     };
 

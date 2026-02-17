@@ -47,15 +47,11 @@ export default function SignupPage() {
         try {
             const response = await authAPI.register({ email, password, name });
             if (response && response.user) {
-                const user = response.user;
-                const displayName = user.user_metadata?.name || name || user.email || '';
-                const isAdmin = email === 'admin@test.com';
-                login(displayName, isAdmin, email);
+                await login();
                 router.push('/');
             } else {
                 // Fallback
-                const isAdmin = email === 'admin@test.com';
-                login(name, isAdmin, email);
+                await login();
                 router.push('/');
             }
         } catch (err: any) {
