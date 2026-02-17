@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from '@/styles/Gallery.module.css';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Video, Image as ImageIcon, X, Upload, PenTool, ArrowLeft, Trash2, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, X, Upload, PenTool, ArrowLeft, Trash2, MapPin } from 'lucide-react';
 import { defaultCommunities, getIconByKey, Community } from '@/shared/services/communityData';
 import { createPortal } from 'react-dom';
 import Navigation from '@/components/Navigation';
@@ -12,13 +12,29 @@ import { useAuth } from '@/context/AuthContext';
 
 import { galleryStates, TrekState, MediaItem, District } from '@/shared/data/galleryData';
 
-
 const Gallery: React.FC = () => {
   const { user } = useAuth();
   const userName = user?.name || (typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Anonymous' : 'Anonymous');
   const userEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('userEmail') || '' : '');
   const [userStories, setUserStories] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [allStories, setAllStories] = useState<any[]>([]);
+  const [states, setStates] = useState<TrekState[]>(galleryStates);
+
+  // Fetch all public stories
+  const fetchAllStories = async () => {
+    try {
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from('stories')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAllStories(data || []);
+    } catch (err) {
+      console.warn('Could not fetch stories:', err);
+    }
+  };
 
   const fetchUserStories = async () => {
     try {
@@ -41,8 +57,86 @@ const Gallery: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchAllStories();
     fetchUserStories();
   }, [userEmail]);
+
+  // Build states and districts dynamically from stories
+  useEffect(() => {
+    // Helper function to convert to Title Case
+    const toTitleCase = (str: string) => {
+      return str
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    };
+
+    // Start with base states (no districts)
+    if (allStories.length === 0) {
+      setStates(galleryStates);
+      return;
+    }
+
+    // Group stories by state and district
+    const storyMap = new Map<string, Map<string, MediaItem[]>>();
+
+    allStories.forEach(story => {
+      if (!story.state || !story.district) return;
+
+      const stateKey = story.state.toLowerCase().replace(/\s+/g, '-');
+      const districtKey = story.district.toLowerCase().replace(/\s+/g, '-');
+
+      if (!storyMap.has(stateKey)) {
+        storyMap.set(stateKey, new Map());
+      }
+
+      const districtMap = storyMap.get(stateKey)!;
+      if (!districtMap.has(districtKey)) {
+        districtMap.set(districtKey, []);
+      }
+
+      districtMap.get(districtKey)!.push({
+        id: story.id,
+        type: story.media_type || 'image',
+        src: story.media_url || '/assets/img/image.jpg',
+        title: story.title || 'Untitled',
+        location: story.trek_name || story.district,
+        community: story.community,
+        communityName: story.community_name,
+        description: story.description
+      });
+    });
+
+    // Build states with dynamically created districts
+    const builtStates: TrekState[] = galleryStates.map(state => {
+      const stateStories = storyMap.get(state.id);
+
+      if (!stateStories || stateStories.size === 0) {
+        // No stories for this state - keep it with empty districts
+        return { ...state, districts: [] };
+      }
+
+      // Create districts from stories
+      const districts: District[] = Array.from(stateStories.entries()).map(([districtKey, media]) => {
+        // Get the original district name from the first story
+        const rawDistrictName = allStories.find(s => s.district?.toLowerCase().replace(/\s+/g, '-') === districtKey)?.district || districtKey;
+
+        return {
+          id: districtKey,
+          name: toTitleCase(rawDistrictName),
+          media
+        };
+      });
+
+      return {
+        ...state,
+        districts
+      };
+    });
+
+    setStates(builtStates);
+  }, [allStories]);
 
   const handleEditStory = (story: any) => {
     setEditingId(story.id);
@@ -59,36 +153,25 @@ const Gallery: React.FC = () => {
   const handleDeleteStory = async (id: string) => {
     if (!confirm('Delete this story? This cannot be undone.')) return;
     try {
-      // First get the path
       const { data: existing, error: selErr } = await supabase.from('stories').select('storage_path').eq('id', id).single();
-
       if (selErr) {
         console.error("Error finding story to delete:", selErr);
-        // If row doesn't exist, we can't delete it.
         return;
       }
-
-      // If we have a path, try to delete from storage
       if (existing?.storage_path) {
-        const { error: storageError } = await supabase.storage.from('stories').remove([existing.storage_path]);
+        const { error: storageError } = await supabase.storage.from('trek-images').remove([existing.storage_path]);
         if (storageError) {
           console.warn('Storage delete warning (continuing to DB delete):', storageError.message);
         }
       }
-
-      // Finally delete the row
       const { error } = await supabase.from('stories').delete().eq('id', id);
       if (error) throw error;
-
       await fetchUserStories();
+      await fetchAllStories();
     } catch (err) {
       console.error('Delete failed', err);
-      // alert('Failed to delete story'); // Removed alert for better UX, could use toast
     }
   };
-
-  // Use imported states
-  const states: TrekState[] = useMemo(() => galleryStates, []);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -96,8 +179,6 @@ const Gallery: React.FC = () => {
   const [isContributeOpen, setIsContributeOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'explore' | 'my-stories'>('explore');
   const [contributionType, setContributionType] = useState<'media' | 'blog'>('media');
-
-  // Form State
   const [formTitle, setFormTitle] = useState('');
   const [formState, setFormState] = useState('');
   const [formDistrict, setFormDistrict] = useState('');
@@ -108,24 +189,24 @@ const Gallery: React.FC = () => {
   const [formPreview, setFormPreview] = useState<string | null>(null);
 
   const activeState = useMemo(
-    () => states[currentIndex],
+    () => states[currentIndex] || { id: '', name: '', subtitle: '', districts: [] },
     [states, currentIndex]
   );
-  const [activeDistrictId, setActiveDistrictId] = useState(
-    activeState.districts?.[0]?.id || ''
-  );
+  const [activeDistrictId, setActiveDistrictId] = useState('');
+
+  useEffect(() => {
+    if (activeState.districts && activeState.districts.length > 0) {
+      setActiveDistrictId(activeState.districts[0].id);
+    } else {
+      setActiveDistrictId('');
+    }
+  }, [activeState]);
 
   useEffect(() => {
     if (scrollRef.current) {
-      const activeCard = scrollRef.current.querySelector<HTMLElement>(
-        `[data-index="${currentIndex}"]`
-      );
+      const activeCard = scrollRef.current.querySelector<HTMLElement>(`[data-index="${currentIndex}"]`);
       if (activeCard) {
-        activeCard.scrollIntoView({
-          behavior: 'smooth',
-          inline: 'center',
-          block: 'nearest',
-        });
+        activeCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }
   }, [currentIndex]);
@@ -142,18 +223,8 @@ const Gallery: React.FC = () => {
     setCurrentIndex(displayIndex);
   }, []);
 
-  useEffect(() => {
-    if (activeState.districts && activeState.districts.length > 0) {
-      setActiveDistrictId(activeState.districts[0].id);
-    } else {
-      setActiveDistrictId('');
-    }
-  }, [activeState]);
-
   const activeDistrict = useMemo(
-    () =>
-      activeState.districts.find((district) => district.id === activeDistrictId) ||
-      activeState.districts[0] || { id: '', name: '', media: [] },
+    () => activeState.districts.find((district) => district.id === activeDistrictId) || activeState.districts[0] || { id: '', name: '', media: [] },
     [activeState, activeDistrictId]
   );
 
@@ -180,7 +251,10 @@ const Gallery: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formState || !formDistrict) return;
+    if (!formState || !formDistrict) {
+      alert('Please select a state and enter a district name.');
+      return;
+    }
 
     try {
       // Enforce image-only on submit as well
@@ -196,14 +270,15 @@ const Gallery: React.FC = () => {
         const safeName = `${Date.now()}-${formFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
         storagePath = `stories/${userEmail || 'anon'}/${safeName}`;
         try {
-          const { error: uploadErr } = await supabase.storage.from('stories').upload(storagePath, formFile as File, { cacheControl: '3600', upsert: false });
+          const { error: uploadErr } = await supabase.storage.from('trek-images').upload(storagePath, formFile as File, { cacheControl: '3600', upsert: false });
           if (uploadErr) {
-            // If bucket is missing or other storage error, don't crash — fall back to using the preview URL
-            console.warn('Supabase storage upload failed, falling back to preview URL:', uploadErr.message || uploadErr);
-          } else {
-            const { data: urlData } = supabase.storage.from('stories').getPublicUrl(storagePath);
-            mediaUrl = urlData?.publicUrl || mediaUrl;
+            console.error('Supabase storage upload failed:', uploadErr);
+            alert(`Failed to upload image: ${uploadErr.message}`);
+            return;
           }
+
+          const { data: urlData } = supabase.storage.from('trek-images').getPublicUrl(storagePath);
+          mediaUrl = urlData?.publicUrl || null;
         } catch (err) {
           console.warn('Storage upload skipped due to error:', err);
         }
@@ -226,11 +301,17 @@ const Gallery: React.FC = () => {
 
       if (editingId) {
         const { error } = await supabase.from('stories').update(payload).eq('id', editingId);
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         setEditingId(null);
       } else {
         const { error } = await supabase.from('stories').insert([payload]);
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
       }
 
       // reset
@@ -245,9 +326,10 @@ const Gallery: React.FC = () => {
       setIsContributeOpen(false);
 
       await fetchUserStories();
-    } catch (err) {
+      await fetchAllStories(); // Refresh gallery data
+    } catch (err: any) {
       console.error('Error saving story:', err);
-      alert('Failed to save story');
+      alert(`Failed to save story: ${err?.message || 'Unknown error'}`);
     }
   };
 
@@ -405,7 +487,7 @@ const Gallery: React.FC = () => {
         <div className={styles['gallery-header']}>
           <h2 className={styles['gallery-title']}>Trek Gallery</h2>
           <p className={styles['gallery-subtitle']}>
-            Pick a state, then explore districts with popular trek photos and videos.
+            Pick a state, then explore districts with popular trek photos.
             <br />
             Join the community by sharing your own memories!
           </p>
@@ -513,7 +595,7 @@ const Gallery: React.FC = () => {
                 </span>
               </div>
               <div className={styles['district-tabs']}>
-                {activeState.districts.map((district) => (
+                {activeState.districts.filter(d => d.media.length > 0).map((district) => (
                   <button
                     key={district.id}
                     className={`${styles['district-tab']} ${activeDistrictId === district.id ? styles.active : ''}
@@ -534,24 +616,14 @@ const Gallery: React.FC = () => {
                   onClick={() => handleMediaClick(item)}
                   style={{ cursor: 'pointer' }}
                 >
-                  {item.type === 'image' ? (
-                    <div style={{ position: 'relative', width: '100%', height: 220 }}>
-                      <Image src={item.src} alt={item.title} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 33vw" unoptimized />
-                    </div>
-                  ) : (
-                    <video
-                      className={styles['media-asset']}
-                      src={item.src}
-                      muted
-                      loop
-                      playsInline
-                    />
-                  )}
+                  <div style={{ position: 'relative', width: '100%', height: 220 }}>
+                    <Image src={item.src} alt={item.title} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 33vw" unoptimized />
+                  </div>
                   <div className={styles['media-overlay']}>
                     <div className={styles['media-title']}>{item.title}</div>
                     <div className={styles['media-location']}>{item.location}</div>
                     <span className={styles['media-tag']}>
-                      {item.type === 'video' ? <><Video size={14} /> Video</> : <><ImageIcon size={14} /> Photo</>}
+                      <ImageIcon size={14} /> Photo
                     </span>
                   </div>
                 </div>
@@ -593,7 +665,16 @@ const Gallery: React.FC = () => {
                       })}
                     >
                       {story.mediaUrl || story.media_url ? (
-                        <img src={story.mediaUrl || story.media_url} alt={story.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                          <Image
+                            src={story.mediaUrl || story.media_url}
+                            alt={story.title}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            unoptimized
+                          />
+                        </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>No Media</div>
                       )}
@@ -601,7 +682,7 @@ const Gallery: React.FC = () => {
                         <h4 style={{ color: '#fff', margin: 0, fontSize: 16 }}>{story.title}</h4>
                       </div>
                       <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', padding: 4, borderRadius: 4 }}>
-                        {story.media_type === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
+                        <ImageIcon size={14} color="#fff" />
                       </div>
                     </div>
                     <div style={{ padding: 16 }}>
@@ -642,18 +723,9 @@ const Gallery: React.FC = () => {
               <X size={32} />
             </button>
 
-            {selectedMedia.type === 'image' ? (
-              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                <Image src={selectedMedia.src} alt={selectedMedia.title} fill style={{ objectFit: 'contain' }} unoptimized />
-              </div>
-            ) : (
-              <video
-                src={selectedMedia.src}
-                className={styles['modal-media']}
-                controls
-                autoPlay
-              />
-            )}
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <Image src={selectedMedia.src} alt={selectedMedia.title} fill style={{ objectFit: 'contain' }} unoptimized />
+            </div>
 
             <div className={styles['modal-info']}>
               <h3 className={styles['modal-title']}>{selectedMedia.title}</h3>
@@ -671,15 +743,7 @@ const Gallery: React.FC = () => {
                 </div>
               )}
 
-              <button
-                className={styles['delete-story-btn']}
-                onClick={() => {
-                  alert("Story removed! (This is a demo, refreshing will restore it)");
-                  closeMedia();
-                }}
-              >
-                <Trash2 size={16} /> Remove Story
-              </button>
+
             </div>
           </div>
         </div>,
