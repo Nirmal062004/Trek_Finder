@@ -50,7 +50,7 @@ interface Filters {
 
 const STORAGE_KEY_SAVED_TREKS = 'trek_finder_saved_treks';
 
-async function runOverpass(query: string): Promise<any> {
+async function runOverpass(query: string, externalSignal?: AbortSignal): Promise<any> {
     const key = makeCacheKey('overpass', query);
     return fetchWithStaleWhileRevalidate(
         key,
@@ -70,6 +70,15 @@ async function runOverpass(query: string): Promise<any> {
                         const controller = new AbortController();
                         const timeoutMs = 15000 * attempt;
                         const timer = setTimeout(() => controller.abort(), timeoutMs);
+                        let externalListener: (() => void) | null = null;
+                        if (externalSignal) {
+                            if (externalSignal.aborted) {
+                                controller.abort();
+                            } else {
+                                externalListener = () => controller.abort();
+                                externalSignal.addEventListener('abort', externalListener);
+                            }
+                        }
 
                         const resp = await fetch(url, {
                             method: 'POST',
@@ -79,6 +88,7 @@ async function runOverpass(query: string): Promise<any> {
                         });
 
                         clearTimeout(timer);
+                        if (externalSignal && externalListener) externalSignal.removeEventListener('abort', externalListener);
 
                         if (!resp.ok) {
                             lastError = new Error(`Overpass error: ${resp.status}`);
@@ -105,27 +115,39 @@ async function runOverpass(query: string): Promise<any> {
 }
 
 function buildWaysFromOverpass(data: any): Way[] {
-    const nodes = new Map<number, [number, number]>();
     const ways: Way[] = [];
 
+    // Overpass can return geometries directly via `out geom` - prefer that.
     (data.elements || []).forEach((el: any) => {
-        if (el.type === 'node') nodes.set(el.id, [el.lat, el.lon]);
-    });
+        try {
+            if (el.type === 'way' || el.type === 'relation') {
+                let coords: [number, number][] = [];
 
-    (data.elements || []).forEach((el: any) => {
-        if (el.type === 'way') {
-            const coords = (el.nodes || [])
-                .map((nid: number) => nodes.get(nid))
-                .filter(Boolean) as [number, number][];
-            ways.push({ id: el.id, tags: el.tags || {}, coords, center: el.center });
-        }
-        if (el.type === 'relation' && el.tags && (el.tags.type === 'route' || el.tags.route)) {
-            if (el.members && el.members.length) {
-                const coords = (el.members || [])
-                    .map((m: any) => (m.type === 'node' ? nodes.get(m.ref) : null))
-                    .filter(Boolean) as [number, number][];
-                ways.push({ id: el.id, tags: el.tags || {}, coords, center: el.center });
+                if (el.geometry && Array.isArray(el.geometry) && el.geometry.length) {
+                    coords = el.geometry.map((g: any) => [g.lat, g.lon]);
+                } else if (el.nodes && el.nodes.length && data.elements) {
+                    // fallback: map node refs to node entries (rare when using out geom)
+                    const nodeMap = new Map<number, [number, number]>();
+                    (data.elements || []).forEach((n: any) => {
+                        if (n.type === 'node') nodeMap.set(n.id, [n.lat, n.lon]);
+                    });
+                    coords = (el.nodes || []).map((nid: number) => nodeMap.get(nid)).filter(Boolean) as [number, number][];
+                }
+
+                // skip empty geometries
+                if (coords.length) {
+                    // simplify by sampling points when very large
+                    const MAX_POINTS = 800;
+                    if (coords.length > MAX_POINTS) {
+                        const step = Math.ceil(coords.length / MAX_POINTS);
+                        coords = coords.filter((_, i) => i % step === 0);
+                    }
+
+                    ways.push({ id: el.id, tags: el.tags || {}, coords, center: el.center });
+                }
             }
+        } catch (err) {
+            // tolerate parsing errors for individual elements
         }
     });
 
@@ -351,6 +373,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
     const [pendingFilters, setPendingFilters] = useState<Filters>(filters);
     const [pendingRadius, setPendingRadius] = useState<number>(radius);
     const latestViewedTrekId = useRef<number | string | null>(null);
+    const searchAbortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         // keep pending controls in sync when filters/radius change externally (e.g., Reset)
@@ -395,11 +418,14 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                                             way(around:${searchRadius},${lat},${lng})["highway"~"path|track"]["name"];
                                             way(around:${searchRadius},${lat},${lng})["highway"~"path|track"]["incline"];
                                         );
-                                        out body;
-                                        >;
-                                        out skel qt;`;
+                                        out geom;`;
 
-                const data = await runOverpass(overpassQuery);
+                // cancel any prior search
+                if (searchAbortRef.current) searchAbortRef.current.abort();
+                const controller = new AbortController();
+                searchAbortRef.current = controller;
+
+                const data = await runOverpass(overpassQuery, controller.signal);
                 const ways = buildWaysFromOverpass(data);
 
                 const enhanced: Trek[] = ways.map((w) => {
@@ -444,7 +470,12 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 setStatus('❌ Location not found. Make sure the city/location name is spelled correctly (e.g., "Manali", "Nashik", "Rishikesh").');
                 setLoading(false);
             }
-        } catch (err) {
+        } catch (err: any) {
+            if (err && err.name === 'AbortError') {
+                setStatus('Search cancelled');
+                setLoading(false);
+                return;
+            }
             console.error('Error searching location:', err);
             setStatus('❌ Error searching location. Please try again.');
             setLoading(false);
@@ -475,11 +506,13 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                                 way(around:${searchRadius},${lat},${lng})["highway"="path"]["sac_scale"];
                                 way(around:${searchRadius},${lat},${lng})["highway"="track"]["tracktype"];
                             );
-                            out body;
-                            >;
-                            out skel qt;`;
+                            out geom;`;
 
-            const data = await runOverpass(query);
+            if (searchAbortRef.current) searchAbortRef.current.abort();
+            const controller = new AbortController();
+            searchAbortRef.current = controller;
+
+            const data = await runOverpass(query, controller.signal);
             const ways = buildWaysFromOverpass(data);
 
             const enhanced: Trek[] = ways.map((w) => {
@@ -536,7 +569,12 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 setStatus('❌ No treks found matching your filters. Try adjusting criteria.');
             }
             setLoading(false);
-        } catch (err) {
+        } catch (err: any) {
+            if (err && err.name === 'AbortError') {
+                setStatus('Search cancelled');
+                setLoading(false);
+                return;
+            }
             console.error(err);
             setStatus('❌ Error searching treks. Please try again.');
             setLoading(false);
