@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "check-assets": "node ./scripts/check-assets.js"
+    ,"list-client":"node ./scripts/list-client-components.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.32.0",

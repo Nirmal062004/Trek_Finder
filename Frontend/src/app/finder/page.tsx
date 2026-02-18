@@ -374,6 +374,40 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
     const [pendingRadius, setPendingRadius] = useState<number>(radius);
     const latestViewedTrekId = useRef<number | string | null>(null);
     const searchAbortRef = useRef<AbortController | null>(null);
+    // Batch map updates using requestAnimationFrame to avoid jank when switching modules
+    const rafPolylines = useRef<number | null>(null);
+    const rafMarkers = useRef<number | null>(null);
+    const rafCircleMarkers = useRef<number | null>(null);
+    const rafFitBounds = useRef<number | null>(null);
+
+    const scheduleSetPolylines = (val: any) => {
+        if (rafPolylines.current) cancelAnimationFrame(rafPolylines.current);
+        rafPolylines.current = requestAnimationFrame(() => {
+            setPolylines(val);
+            rafPolylines.current = null;
+        });
+    };
+    const scheduleSetMarkers = (val: any) => {
+        if (rafMarkers.current) cancelAnimationFrame(rafMarkers.current);
+        rafMarkers.current = requestAnimationFrame(() => {
+            setMarkers(val);
+            rafMarkers.current = null;
+        });
+    };
+    const scheduleSetCircleMarkers = (val: any) => {
+        if (rafCircleMarkers.current) cancelAnimationFrame(rafCircleMarkers.current);
+        rafCircleMarkers.current = requestAnimationFrame(() => {
+            setCircleMarkers(val);
+            rafCircleMarkers.current = null;
+        });
+    };
+    const scheduleSetFitBounds = (val: any) => {
+        if (rafFitBounds.current) cancelAnimationFrame(rafFitBounds.current);
+        rafFitBounds.current = requestAnimationFrame(() => {
+            setFitBounds(val);
+            rafFitBounds.current = null;
+        });
+    };
 
     useEffect(() => {
         // keep pending controls in sync when filters/radius change externally (e.g., Reset)

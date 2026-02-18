@@ -154,4 +154,14 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
     return <div id="trek-map" style={{ width: '100%', height: '100%', zIndex: 1 }} />;
 };
 
-export default MapFeature;
+function propsAreEqual(prev: MapFeatureProps, next: MapFeatureProps) {
+    if (prev.center[0] !== next.center[0] || prev.center[1] !== next.center[1]) return false;
+    if (prev.zoom !== next.zoom) return false;
+    if ((prev.markers?.length || 0) !== (next.markers?.length || 0)) return false;
+    if ((prev.polylines?.length || 0) !== (next.polylines?.length || 0)) return false;
+    if ((prev.circleMarkers?.length || 0) !== (next.circleMarkers?.length || 0)) return false;
+    if ((prev.fitBounds?.length || 0) !== (next.fitBounds?.length || 0)) return false;
+    return true;
+}
+
+export default React.memo(MapFeature, propsAreEqual);
