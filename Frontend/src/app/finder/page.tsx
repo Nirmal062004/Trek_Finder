@@ -348,8 +348,9 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
     // Map State
     const [mapCenter, setMapCenter] = useState<[number, number]>([22.5937, 78.9629]);
     const [mapZoom, setMapZoom] = useState(5);
+    const [mapPitch, setMapPitch] = useState(0);
     const [markers, setMarkers] = useState<Array<{ coords: [number, number]; title?: string }>>([]);
-    const [polylines, setPolylines] = useState<Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' | 'inherit' }>>([]);
+    const [polylines, setPolylines] = useState<Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }>>([]);
     const [circleMarkers, setCircleMarkers] = useState<Array<{ coords: [number, number]; color: string; fillColor?: string; radius: number; popup?: string }>>([]);
     const [fitBounds, setFitBounds] = useState<[number, number][] | undefined>(undefined);
     const [userMarkerSet, setUserMarkerSet] = useState(false);
@@ -492,7 +493,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 setCircleMarkers([]);
                 setFitBounds(undefined);
 
-                const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' | 'inherit' }> = enhanced.slice(0, 50).map((w) => ({
+                const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = enhanced.slice(0, 50).map((w) => ({
                     coords: w.coords,
                     color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                     weight: 3,
@@ -588,7 +589,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
             const list = Array.from(unique.values());
             setAllResults(list);
 
-            const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' | 'inherit' }> = list.slice(0, 50).map((w) => ({
+            const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = list.slice(0, 50).map((w) => ({
                 coords: w.coords,
                 color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                 weight: 3,
@@ -617,7 +618,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
 
     const fetchRouteFromOSRM = async (start: { lat: number, lng: number }, end: { lat: number, lng: number }) => {
         try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+            const url = `https://router.project-osrm.org/route/v1/foot/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
             const response = await fetch(url);
             const data = await response.json();
             if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
@@ -634,7 +635,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
         if (!trek.coords || !trek.coords.length) return;
         latestViewedTrekId.current = trek.id;
 
-        let newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' | 'inherit' }> = [{
+        let newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = [{
             coords: trek.coords,
             color: '#FFD700',
             weight: 5,
@@ -672,20 +673,26 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
 
             if (latestViewedTrekId.current === trek.id) {
                 if (routeData) {
-                    const routeCoords = routeData.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+                    // OSRM snaps to nearest path. To ensure end-to-end connection, 
+                    // we prepend the exact marker and append the exact trailhead.
+                    const routeCoords: [number, number][] = [
+                        [userLatLng.lat, userLatLng.lng],
+                        ...routeData.geometry.coordinates.map((c: number[]) => [c[1], c[0]]),
+                        [startLatLng.lat, startLatLng.lng]
+                    ];
+
                     const distanceKm = (routeData.distance / 1000).toFixed(1);
                     const durationMins = Math.round(routeData.duration / 60);
 
                     newPolylines.push({
-                        coords: routeCoords as [number, number][],
+                        coords: routeCoords,
                         color: '#3b82f6',
-                        weight: 4,
-                        opacity: 0.8,
-                        dashArray: '1, 6',
+                        weight: 6,
+                        opacity: 1,
                         lineCap: 'round' as const,
-                        popup: `<div style="text-align:center"><b>🚗 Route to Start</b><br/>${distanceKm} km • ~${durationMins} mins</div>`
+                        popup: `<div style="text-align:center"><b>🚶 Walking Route to Start</b><br/>${distanceKm} km • ~${durationMins} mins</div>`
                     });
-                    setStatus(`✅ Route found: ${distanceKm}km drive to start.`);
+                    setStatus(`✅ Walking route found: ${distanceKm}km to trailhead.`);
                 } else {
                     newPolylines.push({
                         coords: [markers[0].coords, trek.coords[0]],
@@ -871,7 +878,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 const lat = markers.length > 0 ? markers[0].coords[0] : mapCenter[0];
                 const lng = markers.length > 0 ? markers[0].coords[1] : mapCenter[1];
                 const serverResults = await fetchTreksFromSupabase({ name: trekNameFilter, lat, lng, radiusKm: radius, difficulty: filters.difficulty, duration: filters.duration, sortBy: filters.sortBy });
-                
+
                 // Only use server results if they are non-empty. 
                 // If they are empty, we fall back to OSM results (allResults).
                 if (!cancelled && serverResults && serverResults.length > 0) {
@@ -938,6 +945,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                         polylines={polylines}
                         circleMarkers={circleMarkers}
                         fitBounds={fitBounds}
+                        pitch={mapPitch}
                         onMapClick={handleMapClick}
                     />
                 </div>
@@ -977,11 +985,11 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                     <div className={styles['controls']}>
                         <div className={styles['control-group']}>
                             <label>Search Radius</label>
-                                <select value={pendingRadius} onChange={(e) => setPendingRadius(Number(e.target.value))} disabled={loading}>
-                                    <option value={60}>60 km (Default)</option>
-                                    <option value={100}>100 km</option>
-                                    <option value={150}>150 km</option>
-                                </select>
+                            <select value={pendingRadius} onChange={(e) => setPendingRadius(Number(e.target.value))} disabled={loading}>
+                                <option value={60}>60 km (Default)</option>
+                                <option value={100}>100 km</option>
+                                <option value={150}>150 km</option>
+                            </select>
                         </div>
                         <div className={styles['control-group']}>
                             <label>Difficulty</label>
@@ -1012,11 +1020,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                             <button
                                 className={styles['search-button']}
                                 onClick={() => {
-                                    // If user hasn't set a marker and we're not showing saved-only, confirm before applying
-                                    if (!userMarkerSet && markers.length === 0 && !pendingFilters.showSavedOnly) {
-                                        const ok = window.confirm('No search marker set. Apply filters using current map center? Click OK to continue or Cancel to place a marker.');
-                                        if (!ok) return;
-                                    }
                                     setFilters(pendingFilters);
                                     setRadius(pendingRadius);
                                 }}
@@ -1030,6 +1033,25 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                             >
                                 Apply Filters
                             </button>
+                        </div>
+                        <div className={styles['control-group']}>
+                            <label>Map View Angle</label>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                <button
+                                    onClick={() => setMapPitch(0)}
+                                    className={styles['search-button']}
+                                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: mapPitch === 0 ? '#2bff88' : 'rgba(255,255,255,0.05)', color: mapPitch === 0 ? '#0a1612' : '#ffffff' }}
+                                >
+                                    2D View
+                                </button>
+                                <button
+                                    onClick={() => setMapPitch(60)}
+                                    className={styles['search-button']}
+                                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: mapPitch > 0 ? '#2bff88' : 'rgba(255,255,255,0.05)', color: mapPitch > 0 ? '#0a1612' : '#ffffff' }}
+                                >
+                                    3D View
+                                </button>
+                            </div>
                         </div>
                     </div>
 

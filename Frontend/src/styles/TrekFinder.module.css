@@ -432,17 +432,17 @@
   transform: scale(1.1);
 }
 
-#trek-map .leaflet-control-attribution {
+#trek-map .maplibregl-ctrl-attrib {
   font-size: 10px;
   background: rgba(13, 24, 16, 0.8);
   color: rgba(255, 255, 255, 0.6);
   padding: 0 4px;
 }
 
-#trek-map .leaflet-control-zoom {
+#trek-map .maplibregl-ctrl-group {
   border: 1px solid rgba(255, 255, 255, 0.1);
   margin: 10px;
-  /* Space from edge */
+  background: rgba(13, 24, 16, 0.8);
 }
 
 /* Media Queries */
