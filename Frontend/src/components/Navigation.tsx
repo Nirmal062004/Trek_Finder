@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from '@/styles/Navigation.module.css';
-import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Compass } from 'lucide-react';
+import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Compass, Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface NavigationProps {
@@ -19,6 +19,7 @@ const Navigation: React.FC<NavigationProps> = (_props) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [avatarSeed, setAvatarSeed] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
     { href: '/', label: 'HOME', id: 'home' },
@@ -59,6 +60,11 @@ const Navigation: React.FC<NavigationProps> = (_props) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Close mobile menu when pathname changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
   return (
     <nav className={styles.navbar}>
       <div className={styles['nav-container']}>
@@ -66,7 +72,16 @@ const Navigation: React.FC<NavigationProps> = (_props) => {
           <Compass size={24} color="#2bff88" style={{ marginRight: '8px' }} />
           <span className={styles['logo-text']}>Trek Finder</span>
         </Link>
-        <div className={styles['nav-menu']}>
+
+        <button
+          className={styles['mobile-menu-btn']}
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+        </button>
+
+        <div className={`${styles['nav-menu']} ${isMobileMenuOpen ? styles['mobile-open'] : ''}`}>
           {navItems.map((item) => {
             const isActive = item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href);
             return (

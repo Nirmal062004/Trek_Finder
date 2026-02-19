@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 
 import styles from '@/styles/ChatRoom.module.css';
 import wsService from '@/shared/services/websocket';
-import { Compass, MessageSquare, Users, LogOut, Search, Plus, Trash2, Paperclip, Smile, Send, Check, X, RefreshCw, Save, Copy } from 'lucide-react';
+import { Compass, MessageSquare, Users, LogOut, Search, Plus, Trash2, Paperclip, Smile, Send, Check, X, RefreshCw, Save, Copy, ChevronLeft } from 'lucide-react';
 import { getIconByKey, availableIconKeys, iconRegistry, Community } from '@/shared/services/communityData';
 
 interface Message {
@@ -272,7 +272,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
     if (!isNameSet) return <div className={styles['loading']}>Initializing...</div>;
 
     return (
-        <div className={styles['app-container']}>
+        <div className={`${styles['app-container']} ${activeChatId ? styles['chat-active'] : ''}`}>
 
             {/* LEFT SIDE PANEL */}
             <div className={styles['side-panel']}>
@@ -457,6 +457,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                         {/* Chat Header */}
                         <header className={styles['chat-header']}>
                             <div className={styles['header-left']}>
+                                <button
+                                    className={styles['mobile-back-btn']}
+                                    onClick={() => setActiveChatId(null)}
+                                >
+                                    <ChevronLeft size={24} />
+                                </button>
                                 <div className={styles['header-avatar']}>
                                     {activeDetails.type === 'community' ? getIconByKey((activeDetails.data as Community).iconKey) : <img src={(activeDetails.data as Friend).avatar} style={{ width: '100%' }} />}
                                 </div>

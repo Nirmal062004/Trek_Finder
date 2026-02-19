@@ -127,17 +127,6 @@ export const backendAPI = {
 		return res.json();
 	},
 
-	addReview: async (payload: { trek_id: string; rating: number; comment?: string }) => {
-		if (!FUNCTIONS_BASE) throw new Error('Missing NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL');
-		const res = await fetch(`${FUNCTIONS_BASE}/review`, {
-			method: 'POST',
-			headers: makeAuthHeaders(),
-			body: JSON.stringify(payload),
-		});
-		if (!res.ok) throw new Error(`Add review failed: ${res.status}`);
-		return res.json();
-	},
-
 	addBookmark: async (payload: { trek_id: string }) => {
 		if (!FUNCTIONS_BASE) throw new Error('Missing NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL');
 		const res = await fetch(`${FUNCTIONS_BASE}/bookmark`, {
@@ -247,24 +236,16 @@ export const backendAPI = {
 		const { error } = await supabase.from('communities').delete().eq('id', id);
 		if (error) throw error;
 	},
-
-	getReviews: async () => {
-		const { data, error } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
+	getStories: async () => {
+		const { data, error } = await supabase.from('stories').select('*').order('created_at', { ascending: false });
 		if (error) {
-			console.warn('Fetch reviews failed:', error.message);
+			console.warn('Fetch stories failed:', error.message);
 			return [];
 		}
 		return data || [];
 	},
-
-	deleteReview: async (id: string) => {
-		const { error } = await supabase.from('reviews').delete().eq('id', id);
+	deleteStory: async (id: string) => {
+		const { error } = await supabase.from('stories').delete().eq('id', id);
 		if (error) throw error;
-	},
-
-	updateReview: async (id: string, updates: any) => {
-		const { data, error } = await supabase.from('reviews').update(updates).eq('id', id).select().single();
-		if (error) throw error;
-		return data;
 	}
 };

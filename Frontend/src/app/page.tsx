@@ -15,17 +15,16 @@ export default function HomePage() {
         router.push(`/${path}`);
     };
 
-    const [stats, setStats] = useState({ trails: 0, trekkers: 0, reviews: 0 });
+    const [stats, setStats] = useState({ trails: 0, trekkers: 0 });
     const [topTreks, setTopTreks] = useState<Trek[]>([]);
 
     useEffect(() => {
         let mounted = true;
         const load = async () => {
             try {
-                const [treks, users, reviews] = await Promise.all([
+                const [treks, users] = await Promise.all([
                     backendAPI.getTreks().catch(() => []),
                     backendAPI.getUsers().catch(() => []),
-                    backendAPI.getReviews().catch(() => []),
                 ]);
 
                 if (!mounted) return;
@@ -33,7 +32,6 @@ export default function HomePage() {
                 setStats({
                     trails: Array.isArray(treks) ? treks.length : 0,
                     trekkers: Array.isArray(users) ? users.length : 0,
-                    reviews: Array.isArray(reviews) ? reviews.length : 0,
                 });
 
                 // Choose top treks by rating or newest
@@ -65,7 +63,7 @@ export default function HomePage() {
                         <span className={homeStyles['hero-highlight']}> Adventure</span>
                     </h1>
                     <p className={homeStyles['hero-description']}>
-                        From the Himalayas to the Western Ghats — {stats.trails} trails, {stats.trekkers} trekkers, and {stats.reviews} community reviews helping you choose the perfect route
+                        From the Himalayas to the Western Ghats — {stats.trails} trails and {stats.trekkers} trekkers helping you choose the perfect route
                     </p>
                     <div className={homeStyles['hero-buttons']}>
                         <button
@@ -95,11 +93,6 @@ export default function HomePage() {
                         <div className={homeStyles['stat-item']}>
                             <span className={homeStyles['stat-value']}>{stats.trekkers || '—'}</span>
                             <span className={homeStyles['stat-text']}>Trekkers</span>
-                        </div>
-                        <div className={homeStyles['stat-divider']}></div>
-                        <div className={homeStyles['stat-item']}>
-                            <span className={homeStyles['stat-value']}>{stats.reviews || '—'}</span>
-                            <span className={homeStyles['stat-text']}>Reviews</span>
                         </div>
                     </div>
                 </div>
@@ -195,7 +188,6 @@ export default function HomePage() {
                                     <div className={homeStyles['destination-content']}>
                                         <div className={homeStyles['destination-header']}>
                                             <h3 className={homeStyles['destination-name']}>{name}</h3>
-                                            <span className={homeStyles['destination-rating']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#FFD700" color="#FFD700" /> {Number(rating).toFixed(1)}</span>
                                         </div>
                                         <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {location}</p>
                                         <div className={homeStyles['destination-meta']}>

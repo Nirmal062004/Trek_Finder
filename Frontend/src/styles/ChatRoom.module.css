@@ -1224,47 +1224,124 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 968px) {
   .app-container {
-    flex-direction: column;
+    height: calc(100vh - 70px) !important;
+    margin-top: 70px !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
   }
 
   .nav-rail {
-    width: 100%;
-    height: 60px;
-    flex-direction: row;
-    padding: 0 20px;
-    order: 1;
-  }
-
-  .nav-logo {
-    margin: 0 20px 0 0;
-  }
-
-  .nav-links {
-    flex-direction: row;
-    flex: 1;
-    gap: 8px;
-  }
-
-  .nav-footer {
-    margin-top: 0;
-    margin-left: auto;
+    display: none !important;
   }
 
   .side-panel {
-    display: none;
-  }
-
-  .info-panel {
-    display: none;
+    width: 100% !important;
+    flex: 1 !important;
+    border-right: none !important;
+    background: #0a1612;
   }
 
   .main-stage {
+    position: fixed;
+    top: 70px;
+    left: 0;
     width: 100%;
+    height: calc(100vh - 70px);
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #0d1810;
+  }
+
+  .chat-active .main-stage {
+    transform: translateX(0);
+  }
+
+  .mobile-back-btn {
+    display: flex !important;
+  }
+
+  .chat-header {
+    height: 70px;
+    padding: 0 16px;
+  }
+
+  .header-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .messages-scroll {
+    padding: 16px;
+  }
+
+  .message-row {
+    max-width: 85%;
+  }
+
+  .message-row.own {
+    max-width: 85%;
+  }
+
+  .chat-input-area {
+    padding: 16px;
+    gap: 8px;
+  }
+
+  .input-form {
+    padding: 4px 12px;
+  }
+
+  .send-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .discovery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .community-card,
+  .create-card {
+    min-height: 240px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-info h3 {
+    font-size: 1rem;
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-info span {
+    font-size: 0.75rem;
+  }
+
+  .msg-text {
+    font-size: 0.9rem;
   }
 
   .discovery-grid {
     grid-template-columns: 1fr;
+    padding: 12px;
   }
+}
+
+.mobile-back-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #2bff88;
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 8px;
+  align-items: center;
+  justify-content: center;
 }

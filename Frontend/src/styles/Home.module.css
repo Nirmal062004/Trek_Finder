@@ -963,35 +963,66 @@
 }
 
 /* ========== RESPONSIVE DESIGN ========== */
+
+@media (max-width: 1024px) {
+  .hero-content {
+    padding: 100px 30px 60px;
+  }
+
+  .floating-stats {
+    padding: 25px 30px;
+    gap: 30px;
+  }
+}
+
 @media (max-width: 768px) {
   .hero-content {
-    padding: 100px 20px 60px;
+    padding: 80px 20px 40px;
+  }
+
+  .hero-badge {
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+
+  .hero-title {
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 40px;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 28px;
+    font-size: 1rem;
   }
 
   .floating-stats {
     flex-direction: column;
     gap: 20px;
-    padding: 25px 30px;
+    padding: 30px;
+    width: 90%;
   }
 
   .stat-divider {
     width: 60px;
     height: 2px;
-  }
-
-  .hero-buttons {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .primary-button,
-  .secondary-button {
-    justify-content: center;
+    background: linear-gradient(90deg, transparent, rgba(76, 175, 80, 0.5), transparent);
   }
 
   .features-section,
   .destinations-section {
-    padding: 80px 20px;
+    padding: 80px 20px 100px;
   }
 
   .features-grid,
@@ -1002,34 +1033,30 @@
 
   .contact-links {
     flex-direction: column;
-    align-items: stretch;
+    gap: 12px;
   }
 
   .contact-link {
+    width: 100%;
     justify-content: center;
   }
 }
 
 @media (max-width: 480px) {
   .hero-title {
-    letter-spacing: -1px;
+    font-size: clamp(2.5rem, 12vw, 3.5rem);
+  }
+
+  .hero-description {
+    font-size: 1rem;
+  }
+
+  .stat-value {
+    font-size: 2rem;
   }
 
   .section-title {
-    letter-spacing: -0.5px;
-  }
-
-  .feature-card {
-    padding: 30px 20px;
-  }
-
-  .destination-image {
-    font-size: 4rem;
-    padding: 30px;
-  }
-
-  .cta-section {
-    padding: 60px 20px;
+    font-size: 2rem;
   }
 
   .footer {
