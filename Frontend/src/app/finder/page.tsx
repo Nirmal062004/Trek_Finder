@@ -1074,8 +1074,20 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                             </div>
                         )}
                         {loading && (
-                            <div style={{ textAlign: 'center', padding: '20px', color: '#4a7c4e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                                <Loader className="animate-spin" size={20} /> Loading treks...
+                            <div className={styles['loading-container']}>
+                                <div className={styles['mountain-loader']}>
+                                    <svg viewBox="0 0 100 100">
+                                        <path
+                                            className={styles['mountain-path']}
+                                            d="M10 80 L35 30 L50 55 L70 20 L90 80 Z"
+                                        />
+                                    </svg>
+                                    <div className={styles['scanner-line']} />
+                                </div>
+                                <div className={styles['loading-text']}>Mapping Trails</div>
+                                <div className={styles['loader-subtext']}>
+                                    Scanning terrain data for the best hiking routes...
+                                </div>
                             </div>
                         )}
                         {results.map((r) => (

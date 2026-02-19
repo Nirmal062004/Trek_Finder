@@ -47,7 +47,7 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
             center: [73.7898, 19.9975],
             zoom: zoom || 14,
             pitch: pitch,
-            bearing: pitch > 0 ? -20 : 0,
+            bearing: 0,
             antialias: true,
             minZoom: 2,
             maxZoom: 20,
@@ -142,7 +142,7 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
             if (Math.abs(currentPitch - pitch) > 0.1) {
                 mapRef.current.easeTo({
                     pitch: pitch,
-                    bearing: pitch > 0 ? -20 : 0,
+                    bearing: 0,
                     duration: 800,
                     easing: (t) => t * (2 - t)
                 });
