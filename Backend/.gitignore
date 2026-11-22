@@ -12,5 +12,5 @@ node_modules/
 logs/
 *.log
 
-# DB migrations
-Backend/migrations/*.sql
+# DB migrations (tracked in git)
+# Backend/migrations/*.sql
