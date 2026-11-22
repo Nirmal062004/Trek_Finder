@@ -252,7 +252,3 @@ const propsAreEqual = (prev: MapFeatureProps, next: MapFeatureProps) => {
 };
 
 export default React.memo(MapFeature, propsAreEqual);
-
-
-
-

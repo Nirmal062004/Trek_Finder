@@ -247,5 +247,10 @@ export const backendAPI = {
 	deleteStory: async (id: string) => {
 		const { error } = await supabase.from('stories').delete().eq('id', id);
 		if (error) throw error;
+	},
+
+	deleteReview: async (id: string) => {
+		const { error } = await supabase.from('reviews').delete().eq('id', id);
+		if (error) throw error;
 	}
 };

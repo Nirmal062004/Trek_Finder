@@ -14,7 +14,7 @@ Before you push to GitHub
 - Ensure `.gitignore` is present (already added).
 - Add your Supabase environment variables to `.env.local` (do NOT commit `.env` files).
     - `NEXT_PUBLIC_SUPABASE_URL`
-    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - Add real media files under `public/assets/img` and `public/assets/video`.
 
 Asset checklist

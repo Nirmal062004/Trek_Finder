@@ -8,6 +8,7 @@ import { fetchWithStaleWhileRevalidate, makeCacheKey } from '@/shared/utils/fetc
 import { supabase } from '@/shared/services/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useWishlist } from '@/context/WishlistContext';
+import TrekCard from '@/components/TrekCard';
 
 const MapFeature = dynamic(() => import('@/components/MapFeature'), {
     ssr: false,
@@ -419,6 +420,80 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
     // wishlist is managed by WishlistContext
     const toggleSaveTrek = (trek: Trek) => toggleTrek({ ...trek, isSaved: !!isSaved(trek.id) });
 
+    // Shared helper: runs an Overpass query near a point, enhances each way into a Trek,
+    // and returns the list. Used by both location search and map click so the Overpass
+    // query + enhancement logic lives in one place (was duplicated before).
+    async function fetchOverpassTreks({
+        lat,
+        lng,
+        searchRadiusM,
+        overpassQuery,
+        safetyMode = 'random',
+        addPopularity = false,
+        dedupe = false,
+        extraFilter = null,
+    }: {
+        lat: number;
+        lng: number;
+        searchRadiusM: number;
+        overpassQuery: string;
+        safetyMode?: 'random' | 'tags';
+        addPopularity?: boolean;
+        dedupe?: boolean;
+        extraFilter?: ((w: Trek) => boolean) | null;
+    }): Promise<Trek[]> {
+        if (searchAbortRef.current) searchAbortRef.current.abort();
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+
+        const data = await runOverpass(overpassQuery, controller.signal);
+        const ways = buildWaysFromOverpass(data);
+
+        const enhanced: Trek[] = ways.map((w) => {
+            const first = w.coords && w.coords.length ? w.coords[0] : null;
+            const dist = first ? haversineDistance([lat, lng], first) : Infinity;
+            const sacScale = w.tags.sac_scale || '';
+            let difficulty: 'Easy' | 'Moderate' | 'Hard' = 'Easy';
+            if (sacScale.includes('mountain_hiking') || sacScale.includes('demanding')) difficulty = 'Moderate';
+            if (sacScale.includes('alpine') || sacScale.includes('difficult')) difficulty = 'Hard';
+            if (w.tags.difficulty === 'intermediate') difficulty = 'Moderate';
+            if (w.tags.difficulty === 'advanced' || w.tags.difficulty === 'expert') difficulty = 'Hard';
+            const pathLength = w.coords.length > 1 ? estimatePathLength(w.coords) : 0;
+            const durationHrs = Math.max(1, Math.round((pathLength / 1000) / 4));
+
+            let safety = 3;
+            let popularity: number | undefined = 2;
+            if (safetyMode === 'tags') {
+                if (w.tags.surface === 'paved' || w.tags.highway === 'track') safety = 4;
+                if (sacScale.includes('alpine') || w.tags.hazard) safety = 2;
+                if (addPopularity && w.tags.name) popularity = 3;
+            } else {
+                safety = Math.min(5, 3 + Math.floor(Math.random() * 3));
+            }
+
+            return {
+                id: w.id,
+                tags: w.tags,
+                coords: w.coords,
+                distance: dist,
+                difficulty,
+                duration: durationHrs,
+                length: pathLength,
+                safety,
+                ...(addPopularity ? { popularity } : {}),
+            };
+        });
+
+        let result = enhanced;
+        if (extraFilter) result = result.filter(extraFilter);
+        if (dedupe) {
+            const unique = new Map<number | string, Trek>();
+            result.forEach((w) => { if (!unique.has(w.id)) unique.set(w.id, w); });
+            result = Array.from(unique.values());
+        }
+        return result.sort((a, b) => a.distance - b.distance);
+    }
+
     const searchLocationAndZoom = async (query: string) => {
         if (!query.trim()) return;
 
@@ -455,36 +530,10 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                                         );
                                         out geom;`;
 
-                // cancel any prior search
-                if (searchAbortRef.current) searchAbortRef.current.abort();
-                const controller = new AbortController();
-                searchAbortRef.current = controller;
-
-                const data = await runOverpass(overpassQuery, controller.signal);
-                const ways = buildWaysFromOverpass(data);
-
-                const enhanced: Trek[] = ways.map((w) => {
-                    const first = w.coords && w.coords.length ? w.coords[0] : null;
-                    const dist = first ? haversineDistance([lat, lng], first) : Infinity;
-                    const sacScale = w.tags.sac_scale || '';
-                    let difficulty: 'Easy' | 'Moderate' | 'Hard' = 'Easy';
-                    if (sacScale.includes('mountain_hiking') || sacScale.includes('demanding')) difficulty = 'Moderate';
-                    if (sacScale.includes('alpine') || sacScale.includes('difficult')) difficulty = 'Hard';
-                    if (w.tags.difficulty === 'intermediate') difficulty = 'Moderate';
-                    if (w.tags.difficulty === 'advanced' || w.tags.difficulty === 'expert') difficulty = 'Hard';
-                    const pathLength = w.coords.length > 1 ? estimatePathLength(w.coords) : 0;
-                    const durationHrs = Math.max(1, Math.round((pathLength / 1000) / 4));
-                    return {
-                        id: w.id,
-                        tags: w.tags,
-                        coords: w.coords,
-                        distance: dist,
-                        difficulty,
-                        duration: durationHrs,
-                        length: pathLength,
-                        safety: Math.min(5, 3 + Math.floor(Math.random() * 3)),
-                    };
-                }).sort((a, b) => a.distance - b.distance);
+                const enhanced = await fetchOverpassTreks({
+                    lat, lng, searchRadiusM: searchRadius, overpassQuery,
+                    safetyMode: 'random',
+                });
 
                 setAllResults(enhanced);
                 setLoading(false);
@@ -543,50 +592,19 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                             );
                             out geom;`;
 
-            if (searchAbortRef.current) searchAbortRef.current.abort();
-            const controller = new AbortController();
-            searchAbortRef.current = controller;
-
-            const data = await runOverpass(query, controller.signal);
-            const ways = buildWaysFromOverpass(data);
-
-            const enhanced: Trek[] = ways.map((w) => {
-                const first = w.coords && w.coords.length ? w.coords[0] : null;
-                const dist = first ? haversineDistance([lat, lng], first) : Infinity;
-                const sacScale = w.tags.sac_scale || '';
-                let difficulty: 'Easy' | 'Moderate' | 'Hard' = 'Easy';
-                if (sacScale.includes('mountain_hiking') || sacScale.includes('demanding')) difficulty = 'Moderate';
-                if (sacScale.includes('alpine') || sacScale.includes('difficult')) difficulty = 'Hard';
-                if (w.tags.difficulty === 'intermediate') difficulty = 'Moderate';
-                if (w.tags.difficulty === 'advanced' || w.tags.difficulty === 'expert') difficulty = 'Hard';
-                const pathLength = w.coords.length > 1 ? estimatePathLength(w.coords) : 0;
-                const durationHrs = Math.max(1, Math.round((pathLength / 1000) / 4));
-                let safety = 3;
-                if (w.tags.surface === 'paved' || w.tags.highway === 'track') safety = 4;
-                if (sacScale.includes('alpine') || w.tags.hazard) safety = 2;
-                const popularity = w.tags.name ? 3 : 2;
-                return {
-                    id: w.id,
-                    tags: w.tags,
-                    coords: w.coords,
-                    distance: dist,
-                    difficulty,
-                    duration: durationHrs,
-                    length: pathLength,
-                    safety,
-                    popularity,
-                };
-            })
-                .filter((w) => {
+            const list = await fetchOverpassTreks({
+                lat, lng, searchRadiusM: searchRadius, overpassQuery: query,
+                safetyMode: 'tags',
+                addPopularity: true,
+                dedupe: true,
+                extraFilter: (w) => {
                     if (!w.coords || w.coords.length < 2) return false;
                     if (w.tags.name) return true;
                     if (w.tags.sac_scale || w.tags.route === 'hiking') return true;
                     return w.length > 500;
-                });
+                },
+            });
 
-            const unique = new Map<number | string, Trek>();
-            enhanced.forEach((w) => { if (!unique.has(w.id)) unique.set(w.id, w); });
-            const list = Array.from(unique.values());
             setAllResults(list);
 
             const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = list.slice(0, 50).map((w) => ({
@@ -1090,32 +1108,20 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                                 </div>
                             </div>
                         )}
-                        {results.map((r) => (
-                            <div key={r.id} id={`trek-card-${r.id}`} className={`${styles['result-item']} ${r.isSaved ? styles['saved-item'] : ''}`}>
-                                <div className={styles['result-header']}>
-                                    <div className={styles['result-title']}>{generateTrekName(r.tags, r.difficulty, r.length)}</div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); toggleSaveTrek(r); }}
-                                        className={styles['save-btn']}
-                                        title={isSaved(r.id) ? "Remove from saved" : "Save trek"}
-                                    >
-                                        <Heart size={18} fill={isSaved(r.id) ? "#ff4444" : "none"} color={isSaved(r.id) ? "#ff4444" : "#888"} />
-                                    </button>
-                                </div>
-                                <div className={styles['result-badges']}>
-                                    <span className={`${styles['badge']} ${styles[`difficulty-${r.difficulty.toLowerCase()}`]}`}>{r.difficulty}</span>
-                                    <span className={styles['badge']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {r.duration}h</span>
-                                    <span className={styles['badge']} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                        {Array(r.safety).fill(0).map((_, i) => (<Star key={i} size={12} fill="#FFD700" color="#FFD700" />))}
-                                    </span>
-                                </div>
-                                <div className={styles['result-meta']}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {(r.distance / 1000).toFixed(1)} km away</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Ruler size={14} /> {(r.length / 1000).toFixed(1)} km trek</span>
-                                </div>
-                                <button className={styles['view-route-btn']} onClick={() => viewRoute(r)}>View Route</button>
-                            </div>
-                        ))}
+                        {results.map((r) => {
+                            const name = generateTrekName(r.tags, r.difficulty, r.length);
+                            const saved = isSaved(r.id);
+                            return (
+                                <TrekCard
+                                    key={r.id}
+                                    trek={r}
+                                    name={name}
+                                    isSaved={saved}
+                                    onSave={(e) => { e.stopPropagation(); toggleSaveTrek(r); }}
+                                    onViewRoute={() => viewRoute(r)}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
             </div>

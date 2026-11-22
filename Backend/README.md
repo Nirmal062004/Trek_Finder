@@ -11,8 +11,8 @@ Quick deploy checklist
 2. Run the migration SQL in `Backend/migrations/001_init.sql` (via psql, supabase SQL editor, or supabase-cli).
 3. Configure environment variables for Edge Functions:
    - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY` (keep secret)
-   - `SUPABASE_ANON_KEY`
+   - `SUPABASE_SECRET_KEY` (keep secret)
+   - `SUPABASE_PUBLISHABLE_KEY`
    - `SUPABASE_PROJECT_REF` (for CLI deploys)
    - `SUPABASE_ACCESS_TOKEN` (GitHub Actions token)
    - `SUPABASE_DB_URL` (Postgres connection string used by CI to run migrations)
@@ -55,5 +55,5 @@ The workflow will:
 
 
 Security
-- Keep `SUPABASE_SERVICE_ROLE_KEY` only in server/deployment secrets — never expose it to clients.
+- Keep `SUPABASE_SECRET_KEY` only in server/deployment secrets — never expose it to clients.
 - The functions perform server-side token verification to avoid privilege escalation.

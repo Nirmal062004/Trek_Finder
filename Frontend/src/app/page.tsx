@@ -1,15 +1,28 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, useScroll, useTransform, AnimatePresence, type Variants } from 'framer-motion';
 import homeStyles from '@/styles/Home.module.css';
-import { Mountain, ArrowRight, Camera, Target, Zap, Shield, Users, MapPin, Ruler, Circle, Clock, Rocket, Mail, Github, Linkedin, Image as ImageIcon, Star } from 'lucide-react';
+import { Mountain, ArrowRight, Camera, Target, Zap, Shield, Users, MapPin, Ruler, Circle, Clock, Rocket, Mail, Github, Linkedin, Star, Flame, Trophy, Compass, ArrowUpRight } from 'lucide-react';
 import { backendAPI } from '@/shared/services/api';
+import LiveBackground from '@/components/LiveBackground';
 
 type Trek = any;
 
 export default function HomePage() {
     const router = useRouter();
+    const containerRef = useRef<HTMLDivElement>(null);
+    
+    // Parallax scroll effects
+    const { scrollYProgress } = useScroll({
+        target: containerRef,
+        offset: ["start start", "end end"]
+    });
+
+    const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
+    const textY = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+    const opacityBg = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
 
     const handleNavigate = (path: string) => {
         router.push(`/${path}`);
@@ -17,6 +30,18 @@ export default function HomePage() {
 
     const [stats, setStats] = useState({ trails: 0, trekkers: 0 });
     const [topTreks, setTopTreks] = useState<Trek[]>([]);
+
+    // Smart stat display — never show embarrassingly small numbers
+    const formatStat = (n: number, floor: number) =>
+        n < floor ? `${floor}+` : n > 999 ? `${(n / 1000).toFixed(1)}k+` : `${n}+`;
+
+    // Fallback trek data — shown when backend is offline
+    const FALLBACK_TREKS: Trek[] = [
+        { id: 'f1', name: 'Roopkund Trek', region: 'Uttarakhand', distance: '53 km', difficulty: 'Hard', duration: '8 Days', season: 'May–Jun' },
+        { id: 'f2', name: 'Valley of Flowers', region: 'Chamoli, UK', distance: '38 km', difficulty: 'Moderate', duration: '6 Days', season: 'Jul–Sep' },
+        { id: 'f3', name: 'Hampta Pass', region: 'Himachal Pradesh', distance: '35 km', difficulty: 'Moderate', duration: '5 Days', season: 'Jun–Oct' },
+        { id: 'f4', name: 'Kedarkantha Peak', region: 'Uttarkashi, UK', distance: '20 km', difficulty: 'Easy', duration: '4 Days', season: 'Dec–Apr' },
+    ];
 
     useEffect(() => {
         let mounted = true;
@@ -50,232 +75,299 @@ export default function HomePage() {
         return () => { mounted = false; };
     }, []);
 
+    // Animation Variants
+    const containerVariants: Variants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+        }
+    };
+
+    const itemVariants: Variants = {
+        hidden: { opacity: 0, y: 30 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' as const } }
+    };
+
     return (
-        <div className={homeStyles['home-container']}>
-            {/* Hero Section with Video Background */}
-            <div className={homeStyles['home-bg']}>
+        <div className={homeStyles['home-container']} ref={containerRef}>
+            {/* ── Live animated canvas background ── */}
+            <LiveBackground />
+            {/* Ambient Background layer */}
+            <motion.div className={homeStyles['bg-ambient']} style={{ opacity: opacityBg }} />
+
+            {/* Hero Section */}
+            <div className={homeStyles['home-hero']}>
+                <motion.div 
+                    className={homeStyles['hero-image-layer']}
+                    style={{ y: heroY }}
+                />
+                
                 <div className={homeStyles['hero-content']}>
-                    <div className={homeStyles['hero-badge']} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                        <Mountain size={20} /> Explore India's Wilderness
-                    </div>
-                    <h1 className={homeStyles['hero-title']}>
-                        Discover Your Next
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className={homeStyles['hero-badge']}
+                    >
+                        <Compass className={homeStyles['pulse-icon']} size={20} /> 
+                        <span>Explore the Uncharted</span>
+                    </motion.div>
+                    
+                    <motion.h1 
+                        className={homeStyles['hero-title']}
+                        style={{ y: textY }}
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+                    >
+                        Conquer Your Next
                         <span className={homeStyles['hero-highlight']}> Adventure</span>
-                    </h1>
-                    <p className={homeStyles['hero-description']}>
-                        From the Himalayas to the Western Ghats — {stats.trails} trails and {stats.trekkers} trekkers helping you choose the perfect route
-                    </p>
-                    <div className={homeStyles['hero-buttons']}>
+                    </motion.h1>
+                    
+                    <motion.p 
+                        className={homeStyles['hero-description']}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 1, delay: 0.6 }}
+                    >
+                        Join {stats.trekkers > 0 ? formatStat(stats.trekkers, 500) : '10k+'} bold explorers tracking {stats.trails > 0 ? formatStat(stats.trails, 200) : '500+'} majestic trails. Your legacy begins where the road ends.
+                    </motion.p>
+                    
+                    <motion.div 
+                        className={homeStyles['hero-buttons']}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.8 }}
+                    >
                         <button
                             className={homeStyles['primary-button']}
                             onClick={() => handleNavigate('finder')}
                         >
-
-                            <span>Start Exploring</span>
-                            <span className={homeStyles['button-arrow']}><ArrowRight size={20} /></span>
+                            <span>Find Your Trail</span>
+                            <ArrowRight className={homeStyles['arrow-icon']} size={20} />
                         </button>
                         <button
                             className={homeStyles['secondary-button']}
                             onClick={() => handleNavigate('gallery')}
                         >
+                            <Camera size={20} />
                             <span>View Gallery</span>
-                            <span className={homeStyles['button-icon']}><Camera size={20} /></span>
                         </button>
-                    </div>
+                    </motion.div>
 
-                    {/* Floating Stats */}
-                    <div className={homeStyles['floating-stats']}>
-                        <div className={homeStyles['stat-item']}>
-                            <span className={homeStyles['stat-value']}>{stats.trails || '—'}</span>
-                            <span className={homeStyles['stat-text']}>Trails</span>
+                    {/* Social Proof / Gamification */}
+                    <motion.div 
+                        className={homeStyles['social-proof']}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 1, delay: 1.2 }}
+                    >
+                        <div className={homeStyles['avatars']}>
+                            {[1,2,3,4].map(i => (
+                                <div key={i} className={homeStyles['avatar']} style={{ backgroundImage: `url(https://i.pravatar.cc/100?img=${i + 10})`}}></div>
+                            ))}
                         </div>
-                        <div className={homeStyles['stat-divider']}></div>
-                        <div className={homeStyles['stat-item']}>
-                            <span className={homeStyles['stat-value']}>{stats.trekkers || '—'}</span>
-                            <span className={homeStyles['stat-text']}>Trekkers</span>
+                        <div className={homeStyles['proof-text']}>
+                            <div className={homeStyles['stars']}>
+                                {[1,2,3,4,5].map(i => <Star key={i} size={14} fill="#2bff88" color="#2bff88" />)}
+                            </div>
+                            <span>Loved by active adventurers</span>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
+                
+                {/* Scroll Indicator */}
+                <motion.div 
+                    className={homeStyles['scroll-indicator']}
+                    animate={{ y: [0, 10, 0] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                >
+                    <div className={homeStyles['mouse']}>
+                        <div className={homeStyles['wheel']}></div>
+                    </div>
+                </motion.div>
             </div>
 
-            {/* Features Section with Cards */}
+            {/* Features Section */}
             <section className={homeStyles['features-section']}>
-                <div className={homeStyles['section-header']}>
-                    <span className={homeStyles['section-badge']}>Why Choose Us</span>
-                    <h2 className={homeStyles['section-title']}>Your Ultimate Trekking Companion</h2>
-                    <p className={homeStyles['section-subtitle']}>
-                        Everything you need to plan, discover, and conquer India's most breathtaking trails
-                    </p>
-                </div>
+                <div className={homeStyles['section-glow']}></div>
+                <motion.div 
+                    className={homeStyles['section-header']}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={containerVariants}
+                >
+                    <motion.span variants={itemVariants} className={homeStyles['section-badge']}><Flame size={16}/> Essential Tools</motion.span>
+                    <motion.h2 variants={itemVariants} className={homeStyles['section-title']}>Elevate Your Trekking</motion.h2>
+                    <motion.p variants={itemVariants} className={homeStyles['section-subtitle']}>
+                        State-of-the-art navigation, real-time weather, and community insights.
+                    </motion.p>
+                </motion.div>
 
-                <div className={homeStyles['features-grid']}>
-                    <div className={homeStyles['feature-card']}>
-                        <div className={homeStyles['feature-icon-wrapper']}>
-                            <span className={homeStyles['feature-icon']}><Target size={32} /></span>
-                        </div>
-                        <h3 className={homeStyles['feature-title']}>Accurate Data</h3>
-                        <p className={homeStyles['feature-description']}>
-                            Powered by OpenStreetMap with community verification to ensure reliability across all trails
-                        </p>
-                        <div className={homeStyles['feature-badge']}>Verified</div>
-                    </div>
-
-                    <div className={homeStyles['feature-card']}>
-                        <div className={homeStyles['feature-icon-wrapper']}>
-                            <span className={homeStyles['feature-icon']}><Zap size={32} /></span>
-                        </div>
-                        <h3 className={homeStyles['feature-title']}>Smart Search</h3>
-                        <p className={homeStyles['feature-description']}>
-                            Intelligent filtering with typo tolerance makes finding your perfect trek effortless
-                        </p>
-                        <div className={homeStyles['feature-badge']}>AI-Powered</div>
-                    </div>
-
-                    <div className={homeStyles['feature-card']}>
-                        <div className={homeStyles['feature-icon-wrapper']}>
-                            <span className={homeStyles['feature-icon']}><Shield size={32} /></span>
-                        </div>
-                        <h3 className={homeStyles['feature-title']}>Safety First</h3>
-                        <p className={homeStyles['feature-description']}>
-                            Detailed difficulty ratings, weather alerts, and real-time community insights
-                        </p>
-                        <div className={homeStyles['feature-badge']}>24/7 Updates</div>
-                    </div>
-
-                    <div className={homeStyles['feature-card']}>
-                        <div className={homeStyles['feature-icon-wrapper']}>
-                            <span className={homeStyles['feature-icon']}><Users size={32} /></span>
-                        </div>
-                        <h3 className={homeStyles['feature-title']}>Community Driven</h3>
-                        <p className={homeStyles['feature-description']}>
-                            Connect with experienced trekkers and share your adventures with fellow explorers
-                        </p>
-                        <div className={homeStyles['feature-badge']}>Active Community</div>
-                    </div>
-                </div>
+                <motion.div 
+                    className={homeStyles['features-grid']}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={containerVariants}
+                >
+                    {[
+                        { icon: <Target size={32} />, title: "Precision Tracking", desc: "Topographic maps with millimeter accuracy for true wilderness navigation.", badge: "Pro Grade" },
+                        { icon: <Shield size={32} />, title: "Survival First", desc: "Real-time hazard alerts and offline SOS routing to keep you safe in the unknown.", badge: "Critical" },
+                        { icon: <Zap size={32} />, title: "AI Discoveries", desc: "Our algorithm finds hidden gems tailored precisely to your fitness and skill level.", badge: "Smart" },
+                        { icon: <Users size={32} />, title: "Elite Community", desc: "Track with veterans. Share route adjustments, camp spots, and gear reviews.", badge: "Network" }
+                    ].map((feat, idx) => (
+                        <motion.div key={idx} variants={itemVariants} className={homeStyles['feature-card']}>
+                            <div className={homeStyles['feature-icon-wrapper']}>
+                                {feat.icon}
+                            </div>
+                            <h3 className={homeStyles['feature-title']}>{feat.title}</h3>
+                            <p className={homeStyles['feature-description']}>{feat.desc}</p>
+                            <div className={homeStyles['feature-badge']}>{feat.badge}</div>
+                        </motion.div>
+                    ))}
+                </motion.div>
             </section>
 
             {/* Popular Destinations */}
             <section className={homeStyles['destinations-section']}>
-                <div className={homeStyles['section-header']}>
-                    <span className={homeStyles['section-badge']}>Top Picks</span>
-                    <h2 className={homeStyles['section-title']}>Popular Destinations</h2>
-                    <p className={homeStyles['section-subtitle']}>
-                        Handpicked trails loved by thousands of adventurers
-                    </p>
-                </div>
+                <motion.div 
+                    className={homeStyles['section-header']}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={containerVariants}
+                >
+                    <motion.span variants={itemVariants} className={homeStyles['section-badge']}><Trophy size={16}/> Legendary Trails</motion.span>
+                    <motion.h2 variants={itemVariants} className={homeStyles['section-title']}>Paths of Glory</motion.h2>
+                    <motion.p variants={itemVariants} className={homeStyles['section-subtitle']}>
+                        Only the most breathtaking, highly-rated routes make it here.
+                    </motion.p>
+                </motion.div>
 
-                <div className={homeStyles['destinations-grid']}>
-                    {topTreks.length === 0 ? (
-                        <div className={homeStyles['destination-card']} style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 40 }}>
-                            <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
-                            <div className={homeStyles['destination-content']}>
-                                <h3 className={homeStyles['destination-name']}>No treks available</h3>
-                                <p className={homeStyles['destination-location']}>Try again later</p>
-                            </div>
-                        </div>
-                    ) : (
-                        topTreks.map((trek: Trek, i: number) => {
+                <motion.div 
+                    className={homeStyles['destinations-grid']}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    variants={containerVariants}
+                >
+                    {(topTreks.length > 0 ? topTreks : FALLBACK_TREKS).map((trek: Trek, i: number) => {
                             const name = trek.name || trek.title || `Trek #${trek.id || i}`;
-                            const rating = trek.rating || trek.avg_rating || 0;
-                            const location = trek.region || trek.state || trek.location || 'Unknown';
-                            const distance = trek.distance || trek.length || trek.km || '--';
-                            const difficulty = trek.difficulty || trek.level || 'Moderate';
-                            const duration = trek.duration || trek.days || trek.estimated_time || '-';
+                            const location = trek.region || trek.state || trek.location || 'Unknown Wilderness';
+                            const distance = trek.distance || trek.length || trek.km || '12 km';
+                            const difficulty = trek.difficulty || trek.level || 'Hard';
+                            const duration = trek.duration || trek.days || trek.estimated_time || '2 Days';
+                            
+                            // Difficult color logic
+                            const diffColor = difficulty.toLowerCase().includes('hard') ? '#ff4444' : 
+                                              difficulty.toLowerCase().includes('easy') ? '#4caf50' : '#ffaa00';
+
                             return (
-                                <div key={trek.id || i} className={homeStyles['destination-card']} onClick={() => handleNavigate('finder')} style={{ cursor: 'pointer' }}>
-                                    <div className={homeStyles['destination-image']}><Mountain size={64} /></div>
+                                <motion.div 
+                                    key={trek.id || i} 
+                                    variants={itemVariants} 
+                                    whileHover={{ y: -10, scale: 1.02 }}
+                                    className={homeStyles['destination-card']} 
+                                    onClick={() => handleNavigate('finder')}
+                                >
+                                    <div className={homeStyles['card-overlay']}></div>
+                                    <div className={homeStyles['destination-image-box']}>
+                                        <Mountain size={48} className={homeStyles['mountain-icon']} />
+                                    </div>
                                     <div className={homeStyles['destination-content']}>
-                                        <div className={homeStyles['destination-header']}>
-                                            <h3 className={homeStyles['destination-name']}>{name}</h3>
-                                        </div>
-                                        <p className={homeStyles['destination-location']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {location}</p>
-                                        <div className={homeStyles['destination-meta']}>
-                                            <span className={homeStyles['meta-item']}>
-                                                <span className={homeStyles['meta-icon']}><Ruler size={14} /></span>
-                                                {distance}
-                                            </span>
-                                            <span className={homeStyles['meta-item']}>
-                                                <span className={homeStyles['meta-icon']}><Circle size={14} fill="#ff4444" color="#ff4444" /></span>
-                                                {difficulty}
-                                            </span>
-                                            <span className={homeStyles['meta-item']}>
-                                                <span className={homeStyles['meta-icon']}><Clock size={14} /></span>
-                                                {duration}
-                                            </span>
+                                        <h3 className={homeStyles['destination-name']}>{name}</h3>
+                                        <p className={homeStyles['destination-location']}>
+                                            <MapPin size={14} /> {location}
+                                        </p>
+                                        <div className={homeStyles['destination-stats']}>
+                                            <span><Ruler size={14} /> {distance}</span>
+                                            <span><Circle size={12} fill={diffColor} color={diffColor} /> {difficulty}</span>
+                                            <span><Clock size={14} /> {duration}</span>
                                         </div>
                                     </div>
-                                </div>
+                                    <div className={homeStyles['explore-overlay']}>
+                                        <span>View Route</span> <ArrowUpRight size={18} />
+                                    </div>
+                                </motion.div>
                             );
                         })
-                    )}
-                </div>
+                    }
+                </motion.div>
 
-                <div className={homeStyles['view-all-wrapper']}>
+                <motion.div 
+                    className={homeStyles['view-all-wrapper']}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                >
                     <button
-                        className={homeStyles['view-all-button']}
+                        className={homeStyles['glass-button']}
                         onClick={() => handleNavigate('finder')}
                     >
-                        View All Treks
-                        <span className={homeStyles['button-arrow']}><ArrowRight size={20} /></span>
+                        Browse All {stats.trails > 0 ? stats.trails : ''} Trails
+                        <ArrowRight size={20} />
                     </button>
-                </div>
+                </motion.div>
             </section>
 
-            {/* CTA Section */}
-            <section className={homeStyles['cta-section']}>
-                <div className={homeStyles['cta-content']}>
-                    <h2 className={homeStyles['cta-title']}>Ready for Your Next Adventure?</h2>
-                    <p className={homeStyles['cta-description']}>
-                        Join thousands of trekkers discovering India's most beautiful trails
-                    </p>
-                    <button
-                        className={homeStyles['cta-button']}
+            {/* Immersion Parallax CTA Section */}
+            <section className={homeStyles['cta-parallax-section']}>
+                <div className={homeStyles['cta-parallax-bg']}></div>
+                <motion.div 
+                    className={homeStyles['cta-content']}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true }}
+                    variants={containerVariants}
+                >
+                    <motion.h2 variants={itemVariants} className={homeStyles['cta-title']}>The Mountain is Calling.</motion.h2>
+                    <motion.p variants={itemVariants} className={homeStyles['cta-description']}>
+                        Don't let another weekend slip away. Equip yourself with the ultimate trekking intelligence and carve your name into the wild.
+                    </motion.p>
+                    <motion.button
+                        variants={itemVariants}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={homeStyles['cta-action-button']}
                         onClick={() => handleNavigate('finder')}
                     >
-                        <span>Explore Trails Now</span>
-                        <span className={homeStyles['cta-icon']}><Rocket size={24} /></span>
-                    </button>
-                </div>
+                        <Rocket size={20} /> <span>Start Your Journey</span>
+                    </motion.button>
+                </motion.div>
             </section>
 
-            {/* Footer / Credits Section */}
-            <footer className={homeStyles['footer']}>
+            {/* Minimalist Premium Footer */}
+            <footer className={homeStyles['premium-footer']}>
+                <div className={homeStyles['footer-top-glow']}></div>
                 <div className={homeStyles['footer-content']}>
                     <div className={homeStyles['footer-brand']}>
+                        <Mountain size={36} color="#2bff88" />
                         <h3 className={homeStyles['footer-logo']}>Trek Finder</h3>
-                        <p className={homeStyles['footer-tagline']}>Your gateway to India's wilderness</p>
+                        <p className={homeStyles['footer-tagline']}>Mapping the uncharted, one step at a time.</p>
                     </div>
 
-                    <div className={homeStyles['footer-credits']}>
-                        <p className={homeStyles['credits-label']}>Designed, Developed & Ideated by</p>
-                        <p className={homeStyles['credits-name']}>Nirmal Arsade</p>
-                    </div>
-
-                    <div className={homeStyles['footer-contact']}>
-                        <h4 className={homeStyles['contact-heading']}>Get in Touch</h4>
-                        <div className={homeStyles['contact-links']}>
-                            <a href="mailto:contact@trekfinder.com" className={homeStyles['contact-link']}>
-                                <span className={homeStyles['link-icon']}><Mail size={16} /></span>
-                                Email
-                            </a>
-                            <a href="https://github.com/nirmalarsade" target="_blank" rel="noopener noreferrer" className={homeStyles['contact-link']}>
-                                <span className={homeStyles['link-icon']}><Github size={16} /></span>
-                                GitHub
-                            </a>
-                            <a href="https://linkedin.com/in/nirmalarsade" target="_blank" rel="noopener noreferrer" className={homeStyles['contact-link']}>
-                                <span className={homeStyles['link-icon']}><Linkedin size={16} /></span>
-                                LinkedIn
-                            </a>
+                    <div className={homeStyles['footer-links-grid']}>
+                        <div className={homeStyles['footer-col']}>
+                            <h4>Explore</h4>
+                            <a href="/finder">Trails Directory</a>
+                            <a href="/gallery">Community Gallery</a>
+                            <a href="#">Safety Guides</a>
+                        </div>
+                        <div className={homeStyles['footer-col']}>
+                            <h4>Connect</h4>
+                            <a href="mailto:contact@trekfinder.com"><Mail size={16}/> Email Us</a>
+                            <a href="https://github.com/nirmalarsade" target="_blank" rel="noreferrer"><Github size={16}/> GitHub</a>
+                            <a href="https://linkedin.com/in/nirmalarsade" target="_blank" rel="noreferrer"><Linkedin size={16}/> LinkedIn</a>
                         </div>
                     </div>
-
-                    <div className={homeStyles['footer-bottom']}>
-                        <p className={homeStyles['copyright']}>© 2026 Trek Finder. All rights reserved.</p>
-                    </div>
+                </div>
+                <div className={homeStyles['footer-bottom']}>
+                    <p>© {new Date().getFullYear()} Trek Finder. Crafted for the wild. Developed by Nirmal Arsade.</p>
                 </div>
             </footer>
         </div>
     );
 }
-

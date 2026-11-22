@@ -99,7 +99,10 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
 
     const handleClearCache = () => {
         if (confirm('This will clear local storage data (settings, recent chats, theme). You will be logged out.')) {
+            // Preserve auth token so the user is not unexpectedly logged out
+            const token = localStorage.getItem('token');
             localStorage.clear();
+            if (token) localStorage.setItem('token', token);
             window.location.reload();
         }
     };
