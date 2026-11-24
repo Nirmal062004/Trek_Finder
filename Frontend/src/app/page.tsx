@@ -7,6 +7,7 @@ import homeStyles from '@/styles/Home.module.css';
 import { Mountain, ArrowRight, Camera, Target, Zap, Shield, Users, MapPin, Ruler, Circle, Clock, Rocket, Mail, Github, Linkedin, Star, Flame, Trophy, Compass, ArrowUpRight } from 'lucide-react';
 import { backendAPI } from '@/shared/services/api';
 import LiveBackground from '@/components/LiveBackground';
+import { Button } from '@/components/ui/Button';
 
 type Trek = any;
 
@@ -140,20 +141,14 @@ export default function HomePage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.8 }}
                     >
-                        <button
-                            className={homeStyles['primary-button']}
-                            onClick={() => handleNavigate('finder')}
-                        >
+                        <Button variant="primary" size="lg" onClick={() => handleNavigate('finder')}>
                             <span>Find Your Trail</span>
-                            <ArrowRight className={homeStyles['arrow-icon']} size={20} />
-                        </button>
-                        <button
-                            className={homeStyles['secondary-button']}
-                            onClick={() => handleNavigate('gallery')}
-                        >
+                            <ArrowRight size={20} />
+                        </Button>
+                        <Button variant="secondary" size="lg" onClick={() => handleNavigate('gallery')}>
                             <Camera size={20} />
                             <span>View Gallery</span>
-                        </button>
+                        </Button>
                     </motion.div>
 
                     {/* Social Proof / Gamification */}
@@ -303,13 +298,10 @@ export default function HomePage() {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                 >
-                    <button
-                        className={homeStyles['glass-button']}
-                        onClick={() => handleNavigate('finder')}
-                    >
+                    <Button variant="primary" size="lg" onClick={() => handleNavigate('finder')}>
                         Browse All {stats.trails > 0 ? stats.trails : ''} Trails
                         <ArrowRight size={20} />
-                    </button>
+                    </Button>
                 </motion.div>
             </section>
 

@@ -131,17 +131,19 @@ const AdminPage: React.FC = () => {
     const handleBulkDelete = async () => {
         if (!selectedIds.length) return;
         const count = selectedIds.length;
-        const type = activeTab.slice(0, -1); // user, trek, community, review, story (rough)
+        const typeMap: Record<string, string> = {
+            users: 'user',
+            treks: 'trek',
+            communities: 'community',
+            stories: 'story',
+        };
+        const type = typeMap[activeTab] || activeTab;
         if (!confirm(`Are you sure you want to delete ${count} selected ${type}s?`)) return;
 
         setIsLoading(true);
         try {
             for (const id of selectedIds) {
-                // Determine actual type for deleteItem helper
-                let actualType = activeTab.slice(0, -1);
-                if (activeTab === 'stories') actualType = 'story';
-                if (activeTab === 'communities') actualType = 'community';
-
+                const actualType = typeMap[activeTab] || activeTab;
                 await deleteItem(id, actualType);
             }
             setSelectedIds([]);

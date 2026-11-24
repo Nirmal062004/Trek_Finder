@@ -9,6 +9,7 @@ import { supabase } from '@/shared/services/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useWishlist } from '@/context/WishlistContext';
 import TrekCard from '@/components/TrekCard';
+import { Button } from '@/components/ui/Button';
 
 const MapFeature = dynamic(() => import('@/components/MapFeature'), {
     ssr: false,
@@ -371,9 +372,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
         sortBy: 'distance',
         showSavedOnly: false,
     });
-    // Pending controls: user edits these then clicks Apply to set `filters` and `radius`
-    const [pendingFilters, setPendingFilters] = useState<Filters>(filters);
-    const [pendingRadius, setPendingRadius] = useState<number>(radius);
     const latestViewedTrekId = useRef<number | string | null>(null);
     const searchAbortRef = useRef<AbortController | null>(null);
     // Batch map updates using requestAnimationFrame to avoid jank when switching modules
@@ -411,11 +409,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
         });
     };
 
-    useEffect(() => {
-        // keep pending controls in sync when filters/radius change externally (e.g., Reset)
-        setPendingFilters(filters);
-        setPendingRadius(radius);
-    }, [filters, radius]);
 
     // wishlist is managed by WishlistContext
     const toggleSaveTrek = (trek: Trek) => toggleTrek({ ...trek, isSaved: !!isSaved(trek.id) });
@@ -518,7 +511,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 setStatus(`📍 Found: ${location.name}. Searching for treks here...`);
 
                 setLoading(true);
-                const searchRadius = (pendingRadius || radius) * 1000;
+                const searchRadius = radius * 1000;
                 const overpassQuery = `
                                         [out:json][timeout:25];
                                         (
@@ -569,7 +562,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
     const handleMapClick = async (lat: number, lng: number) => {
         setLoading(true);
 
-        setStatus(`🔍 Scanning within ${pendingRadius || radius} km for treks...`);
+        setStatus(`🔍 Scanning within ${radius} km for treks...`);
 
         setMarkers([{ coords: [lat, lng], title: 'Search Location' }]);
         setUserMarkerSet(true);
@@ -581,7 +574,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
         setFitBounds(undefined);
 
         try {
-            const searchRadius = (pendingRadius || radius) * 1000;
+            const searchRadius = radius * 1000;
             const query = `
                             [out:json][timeout:25];
                             (
@@ -811,8 +804,8 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                 p_lat: lat,
                 p_lng: lng,
                 p_radius_m: (radiusKm || 30) * 1000,
-                // p_difficulty: diffInt, // Pass if filtering by difficulty
-                // p_tags: name ? [name] : null // Check if your RPC supports name/text search
+                p_difficulty: diffInt,
+                p_tags: name ? [name] : null,
             });
 
             if (error) {
@@ -982,28 +975,29 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                             onKeyPress={(e) => { if (e.key === 'Enter') searchLocationAndZoom(locationSearchQuery); }}
                             className={styles['search-input']}
                         />
-                        <button
+                        <Button
+                            variant="primary"
+                            size="sm"
                             onClick={() => searchLocationAndZoom(locationSearchQuery)}
                             disabled={loading || !locationSearchQuery.trim()}
-                            className={styles['search-button']}
                             title="Search location"
                         >
                             <Search size={20} />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="danger"
+                            size="sm"
                             onClick={handleReset}
-                            className={styles['search-button']}
                             title="Reset Map"
-                            style={{ background: 'rgba(255, 68, 68, 0.2)', border: '1px solid rgba(255, 68, 68, 0.4)', color: '#ff8888' }}
                         >
                             <RotateCcw size={20} />
-                        </button>
+                        </Button>
                     </div>
 
                     <div className={styles['controls']}>
                         <div className={styles['control-group']}>
                             <label>Search Radius</label>
-                            <select value={pendingRadius} onChange={(e) => setPendingRadius(Number(e.target.value))} disabled={loading}>
+                            <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} disabled={loading}>
                                 <option value={60}>60 km (Default)</option>
                                 <option value={100}>100 km</option>
                                 <option value={150}>150 km</option>
@@ -1011,7 +1005,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                         </div>
                         <div className={styles['control-group']}>
                             <label>Difficulty</label>
-                            <select value={pendingFilters.difficulty} onChange={(e) => setPendingFilters({ ...pendingFilters, difficulty: e.target.value })}>
+                            <select value={filters.difficulty} onChange={(e) => setFilters({ ...filters, difficulty: e.target.value })}>
                                 <option value="all">All Levels</option>
                                 <option value="Easy">Easy</option>
                                 <option value="Moderate">Moderate</option>
@@ -1020,7 +1014,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                         </div>
                         <div className={styles['control-group']}>
                             <label>Duration</label>
-                            <select value={pendingFilters.duration} onChange={(e) => setPendingFilters({ ...pendingFilters, duration: e.target.value })}>
+                            <select value={filters.duration} onChange={(e) => setFilters({ ...filters, duration: e.target.value })}>
                                 <option value="all">All</option>
                                 <option value="short">Short (&le; 3h)</option>
                                 <option value="medium">Medium (3-8h)</option>
@@ -1029,59 +1023,43 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek, onClose }) => {
                         </div>
                         <div className={styles['control-group']}>
                             <label>Sort By</label>
-                            <select value={pendingFilters.sortBy} onChange={(e) => setPendingFilters({ ...pendingFilters, sortBy: e.target.value })}>
+                            <select value={filters.sortBy} onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}>
                                 <option value="distance">Distance</option>
                                 <option value="difficulty">Difficulty</option>
                             </select>
                         </div>
-                        <div style={{ marginTop: 12 }}>
-                            <button
-                                className={styles['search-button']}
-                                onClick={() => {
-                                    setFilters(pendingFilters);
-                                    setRadius(pendingRadius);
-                                }}
-                                disabled={
-                                    pendingFilters.difficulty === filters.difficulty &&
-                                    pendingFilters.duration === filters.duration &&
-                                    pendingFilters.sortBy === filters.sortBy &&
-                                    pendingFilters.showSavedOnly === filters.showSavedOnly &&
-                                    pendingRadius === radius
-                                }
-                            >
-                                Apply Filters
-                            </button>
-                        </div>
                         <div className={styles['control-group']}>
                             <label>Map View Angle</label>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                                <button
+                                <Button
+                                    variant={mapPitch === 0 ? 'primary' : 'ghost'}
+                                    size="sm"
                                     onClick={() => setMapPitch(0)}
-                                    className={styles['search-button']}
-                                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: mapPitch === 0 ? '#2bff88' : 'rgba(255,255,255,0.05)', color: mapPitch === 0 ? '#0a1612' : '#ffffff' }}
+                                    style={{ flex: 1 }}
                                 >
                                     2D View
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    variant={mapPitch > 0 ? 'primary' : 'ghost'}
+                                    size="sm"
                                     onClick={() => setMapPitch(60)}
-                                    className={styles['search-button']}
-                                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: mapPitch > 0 ? '#2bff88' : 'rgba(255,255,255,0.05)', color: mapPitch > 0 ? '#0a1612' : '#ffffff' }}
+                                    style={{ flex: 1 }}
                                 >
                                     3D View
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
 
                     <div className={styles['trek-counter']}>
-                        <button
-                            className={styles['search-button']}
-                            style={{ background: pendingFilters.showSavedOnly ? '#ff4444' : 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', marginLeft: '10px' }}
-                            onClick={() => setPendingFilters({ ...pendingFilters, showSavedOnly: !pendingFilters.showSavedOnly })}
+                        <Button
+                            variant={filters.showSavedOnly ? 'danger' : 'ghost'}
+                            size="sm"
+                            onClick={() => setFilters({ ...filters, showSavedOnly: !filters.showSavedOnly })}
                             title="Show Saved Only"
                         >
-                            <Heart size={20} fill={pendingFilters.showSavedOnly ? "white" : "none"} />
-                        </button>
+                            <Heart size={20} fill={filters.showSavedOnly ? "white" : "none"} />
+                        </Button>
                         <span className={styles['counter-text']}>{results.length} Trek{results.length !== 1 ? 's' : ''} Found</span>
                     </div>
 

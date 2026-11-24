@@ -138,6 +138,20 @@ export const backendAPI = {
 		return res.json();
 	},
 
+	getBookmarks: async (userId: string) => {
+		const { data, error } = await supabase.from('bookmarks').select('trek_id').eq('user_id', userId);
+		if (error) {
+			console.warn('Fetch bookmarks failed:', error.message);
+			return [];
+		}
+		return (data || []).map((b: any) => b.trek_id);
+	},
+
+	removeBookmark: async (trekId: string, userId: string) => {
+		const { error } = await supabase.from('bookmarks').delete().eq('trek_id', trekId).eq('user_id', userId);
+		if (error) throw error;
+	},
+
 	sendMessage: async (payload: { channel_id: string; content: string; metadata?: Record<string, unknown> }) => {
 		if (!FUNCTIONS_BASE) throw new Error('Missing NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL');
 		const res = await fetch(`${FUNCTIONS_BASE}/chat`, {

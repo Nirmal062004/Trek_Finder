@@ -6,6 +6,10 @@ import styles from '@/styles/Settings.module.css';
 import { Settings as SettingsIcon, User, Lock, Bell, HelpCircle, X, LogOut, Database, Download, Speaker } from 'lucide-react';
 import { authAPI } from '@/shared/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
 
 type SettingsSection = 'general' | 'account' | 'privacy' | 'notifications' | 'data' | 'help';
 
@@ -189,7 +193,9 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                                 </div>
                                 <div style={{ display: 'flex', gap: 10 }}>
                                     <input type="text" className={styles['text-input']} value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your Name" />
-                                    <button className={styles['btn-primary']} onClick={handleSaveName} disabled={!editName.trim() || editName === user?.name || loading}>{nameSaved ? 'Saved' : 'Save'}</button>
+                                    <Button variant="primary" size="sm" onClick={handleSaveName} disabled={!editName.trim() || editName === user?.name || loading}>
+                                        {nameSaved ? 'Saved' : 'Save'}
+                                    </Button>
                                 </div>
                             </div>
 
@@ -200,7 +206,9 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                                 </div>
                                 <div style={{ display: 'flex', gap: 10 }}>
                                     <input type="email" className={styles['text-input']} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="your@email.com" />
-                                    <button className={styles['btn-primary']} onClick={handleSaveEmail} disabled={!editEmail.trim() || editEmail === user?.email || loading}>{emailSaved ? 'Saved' : 'Save'}</button>
+                                    <Button variant="primary" size="sm" onClick={handleSaveEmail} disabled={!editEmail.trim() || editEmail === user?.email || loading}>
+                                        {emailSaved ? 'Saved' : 'Save'}
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -212,7 +220,9 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                                     <label className={styles['item-label']} style={{ color: '#ff4444' }}>Delete Account</label>
                                     <span className={styles['item-desc']}>{deleteConfirm ? 'Are you sure? This action is irreversible.' : 'Permanently remove your account and data.'}</span>
                                 </div>
-                                <button className={styles['btn-danger']} onClick={handleDeleteAccount} onBlur={() => setDeleteConfirm(false)}>{deleteConfirm ? 'Confirm Delete' : 'Delete Account'}</button>
+                                <Button variant="danger" size="sm" onClick={handleDeleteAccount} onBlur={() => setDeleteConfirm(false)}>
+                                    {deleteConfirm ? 'Confirm Delete' : 'Delete Account'}
+                                </Button>
                             </div>
                         </div>
                     </>
@@ -261,7 +271,7 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                                     <label className={styles['item-label']}>Clear Cache</label>
                                     <span className={styles['item-desc']}>Fix issues by clearing local storage data.</span>
                                 </div>
-                                <button className={styles['btn-primary']} onClick={handleClearCache} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>Clear Data</button>
+                                <Button variant="secondary" size="sm" onClick={handleClearCache}>Clear Data</Button>
                             </div>
                         </div>
                     </>
@@ -305,7 +315,7 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                         <div className={styles['setting-group']}>
                             <h3 className={styles['group-title']}>Contact</h3>
                             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.95rem', marginBottom: 16 }}>Having trouble? Our support team is here to help.</p>
-                            <button className={styles['btn-primary']} style={{ width: '100%' }}>Contact Support</button>
+                            <Button variant="primary" size="sm" style={{ width: '100%' }}>Contact Support</Button>
                         </div>
                         <div className={styles['setting-group']}>
                             <h3 className={styles['group-title']}>About</h3>

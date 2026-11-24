@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import styles from '@/styles/Navigation.module.css';
 import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Compass, Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useAvatar } from '@/components/ui/useAvatar';
 
 interface NavigationProps {
   activeNav?: string | null;
@@ -18,8 +19,9 @@ const Navigation: React.FC<NavigationProps> = (_props) => {
   const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [avatarSeed, setAvatarSeed] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const { avatarSeed, saveAvatar } = useAvatar(user);
 
   const navItems = [
     { href: '/', label: 'HOME', id: 'home' },
@@ -27,28 +29,6 @@ const Navigation: React.FC<NavigationProps> = (_props) => {
     { href: '/gallery', label: 'GALLERY', id: 'gallery' },
     { href: '/chat', label: 'CHAT ROOM', id: 'chat' },
   ];
-
-  // Load avatar seed on mount and listen for updates
-  useEffect(() => {
-    if (user) {
-      const updateAvatar = () => {
-        const uid = (user as any)?.id || user.email || user.name || 'anon';
-        const storageKey = `trek_finder_avatar_seed_${uid}`;
-        const seed = localStorage.getItem(storageKey) || user.name || 'Anonymous';
-        setAvatarSeed(seed);
-      };
-
-      updateAvatar(); // Initial load
-
-      window.addEventListener('storage', updateAvatar); // Cross-tab sync
-      window.addEventListener('avatar-updated', updateAvatar); // Same-tab sync
-
-      return () => {
-        window.removeEventListener('storage', updateAvatar);
-        window.removeEventListener('avatar-updated', updateAvatar);
-      };
-    }
-  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

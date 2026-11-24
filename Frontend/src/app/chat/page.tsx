@@ -10,6 +10,7 @@ import wsService from '@/shared/services/websocket';
 import { Compass, MessageSquare, Users, LogOut, Search, Plus, Trash2, Paperclip, Smile, Send, Check, X, RefreshCw, Save, Copy, ChevronLeft } from 'lucide-react';
 import { getIconByKey, availableIconKeys, iconRegistry, Community } from '@/shared/services/communityData';
 import AvatarEditor from '@/components/AvatarEditor';
+import { useAvatar } from '@/components/ui/useAvatar';
 
 interface Message {
     id: number;
@@ -44,8 +45,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
     const { user } = useAuth();
     const [userName, setUserName] = useState('Anonymous');
     const [userUID, setUserUID] = useState('');
-    const [avatarSeed, setAvatarSeed] = useState('');
     const [isNameSet, setIsNameSet] = useState(false);
+
+    const { avatarSeed, generateOptions, saveAvatar } = useAvatar(user);
 
     // UI States
     const [viewMode, setViewMode] = useState<'chats' | 'communities'>('chats');
@@ -81,16 +83,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                 localStorage.setItem('trek_finder_uid', uid);
             }
             setUserUID(uid);
-
-            // Load or init Avatar Seed (scoped per-user if possible)
-            const storageOwner = (user as any)?.id || uid;
-            const storageKey = `trek_finder_avatar_seed_${storageOwner}`;
-            let seed = localStorage.getItem(storageKey);
-            if (!seed) {
-                seed = name; // Default to username
-                localStorage.setItem(storageKey, seed);
-            }
-            setAvatarSeed(seed);
 
             setIsNameSet(true);
         }
@@ -215,33 +207,19 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
     const handleLeaveCommunity = (e: React.MouseEvent, id: string) => { e.stopPropagation(); if (confirm('Are you sure you want to leave this community?')) { setJoinedCommunityIds(prev => prev.filter(jid => jid !== id)); if (activeChatId === id) setActiveChatId(null); } };
     const isJoined = (id: string) => joinedCommunityIds.includes(id);
 
-    const [avatarOptions, setAvatarOptions] = useState<string[]>([]);
-
     // Avatar Management
     const openAvatarEditor = () => {
         setTempAvatarSeed(avatarSeed);
-        generateAvatarOptions(avatarSeed);
+        generateOptions(avatarSeed);
         setShowAvatarEditor(true);
     };
 
-    const generateAvatarOptions = (currentSeed: string) => {
-        const options = [currentSeed]; // Keep current as first option
-        for (let i = 0; i < 9; i++) {
-            options.push(Math.random().toString(36).substring(7));
-        }
-        setAvatarOptions(options);
-    };
-
     const refreshOptions = () => {
-        generateAvatarOptions(tempAvatarSeed); // keep selected one
+        generateOptions(tempAvatarSeed); // keep selected one
     };
 
-    const saveAvatar = () => {
-        setAvatarSeed(tempAvatarSeed);
-        const storageOwner = (user as any)?.id || userUID || 'anon';
-        const storageKey = `trek_finder_avatar_seed_${storageOwner}`;
-        localStorage.setItem(storageKey, tempAvatarSeed);
-        window.dispatchEvent(new Event('avatar-updated')); // Notify Navigation
+    const handleSaveAvatar = () => {
+        saveAvatar(tempAvatarSeed);
         setShowAvatarEditor(false);
     };
 
@@ -543,7 +521,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                 isOpen={showAvatarEditor}
                 currentSeed={avatarSeed}
                 onClose={() => setShowAvatarEditor(false)}
-                onSave={saveAvatar}
+                onSave={handleSaveAvatar}
             />
 
             {

@@ -13,6 +13,7 @@ import {
 import { defaultCommunities, getIconByKey, Community } from '@/shared/services/communityData';
 import MyStories from '@/components/MyStories';
 import AvatarEditor from '@/components/AvatarEditor';
+import { useAvatar } from '@/components/ui/useAvatar';
 
 type Tab = 'overview' | 'travel-list' | 'community' | 'contributions' | 'achievements';
 
@@ -37,10 +38,10 @@ export default function ProfilePage() {
     const [lastCompletedTrek, setLastCompletedTrek] = useState<any>(null);
 
     // -- Avatar State --
-    const [avatarSeed, setAvatarSeed] = useState<string>('');
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
     const [tempAvatarSeed, setTempAvatarSeed] = useState('');
-    const [avatarOptions, setAvatarOptions] = useState<string[]>([]);
+
+    const { avatarSeed, generateOptions, saveAvatar } = useAvatar(user);
 
     // -- Initialization --
     useEffect(() => {
@@ -51,23 +52,6 @@ export default function ProfilePage() {
 
             const savedCompleted = localStorage.getItem('trek_finder_completed_treks');
             if (savedCompleted) setCompletedTreks(JSON.parse(savedCompleted));
-
-            // Sync Avatar
-            const updateAvatar = () => {
-                const uid = (user as any)?.id || user.email || user.name || 'anon';
-                const storageKey = `trek_finder_avatar_seed_${uid}`;
-                const seed = localStorage.getItem(storageKey) || name;
-                setAvatarSeed(seed);
-            };
-
-            updateAvatar();
-            window.addEventListener('storage', updateAvatar);
-            window.addEventListener('avatar-updated', updateAvatar);
-
-            return () => {
-                window.removeEventListener('storage', updateAvatar);
-                window.removeEventListener('avatar-updated', updateAvatar);
-            };
         }
     }, [user]);
 
@@ -133,24 +117,12 @@ export default function ProfilePage() {
     // -- Avatar Handlers --
     const openAvatarEditor = () => {
         setTempAvatarSeed(avatarSeed);
-        generateAvatarOptions(avatarSeed);
+        generateOptions(avatarSeed);
         setShowAvatarEditor(true);
     };
 
-    const generateAvatarOptions = (currentSeed: string) => {
-        const options = [currentSeed];
-        for (let i = 0; i < 9; i++) {
-            options.push(Math.random().toString(36).substring(7));
-        }
-        setAvatarOptions(options);
-    };
-
     const saveNewAvatar = () => {
-        setAvatarSeed(tempAvatarSeed);
-        const uid = (user as any)?.id || user?.email || user?.name || 'anon';
-        const storageKey = `trek_finder_avatar_seed_${uid}`;
-        localStorage.setItem(storageKey, tempAvatarSeed);
-        window.dispatchEvent(new Event('avatar-updated'));
+        saveAvatar(tempAvatarSeed);
         setShowAvatarEditor(false);
     };
 

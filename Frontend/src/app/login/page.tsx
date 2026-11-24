@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import styles from '@/styles/Login.module.css';
 import Navigation from '@/components/Navigation';
 import { authAPI } from '@/shared/services/api';
-import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, Compass } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -97,21 +98,15 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        <div className={styles.formGroup}>
-                            <label htmlFor="email" className={styles.label}>Email Address</label>
-                            <div className={styles.inputWrapper}>
-                                <Mail className={styles.inputIcon} size={20} />
-                                <input
-                                    type="email"
-                                    id="email"
-                                    className={styles.input}
-                                    placeholder="Enter your email address"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
+                        <Input
+                            label="Email Address"
+                            icon={<Mail size={20} />}
+                            type="email"
+                            placeholder="Enter your email address"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            disabled={loading}
+                        />
 
                         <div className={styles.formGroup}>
                             <label htmlFor="password" className={styles.label}>Password</label>
@@ -137,13 +132,15 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        {/* <div className={styles.forgotPassword}>
-                            <a href="#forgot" className={styles.forgotLink}>Forgot Password?</a>
-                        </div> */}
-
-                        <button type="submit" className={styles.submitButton} disabled={loading}>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            fullWidth
+                            disabled={loading}
+                        >
                             {loading ? 'Signing In...' : <>Sign In <LogIn size={20} /></>}
-                        </button>
+                        </Button>
                     </form>
 
                     <div className={styles.divider}>Or</div>

@@ -19,7 +19,6 @@ const globalRef = globalThis as unknown as { __supabase_client__?: SupabaseClien
 
 export const supabase = globalRef.__supabase_client__ ??= createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 	auth: {
-		autocompleteSignIn: true,
 		persistSession: true,
 		autoRefreshToken: true,
 		detectSessionInUrl: true,

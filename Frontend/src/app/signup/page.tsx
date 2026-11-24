@@ -7,6 +7,8 @@ import { authAPI } from '@/shared/services/api';
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, Compass } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -112,37 +114,25 @@ export default function SignupPage() {
                             </div>
                         )}
 
-                        <div className={styles.formGroup}>
-                            <label htmlFor="name" className={styles.label}>Full Name</label>
-                            <div className={styles.inputWrapper}>
-                                <User className={styles.inputIcon} size={20} />
-                                <input
-                                    type="text"
-                                    id="name"
-                                    className={styles.input}
-                                    placeholder="Sherlock Holmes"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
+                        <Input
+                            label="Full Name"
+                            icon={<User size={20} />}
+                            type="text"
+                            placeholder="Sherlock Holmes"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            disabled={loading}
+                        />
 
-                        <div className={styles.formGroup}>
-                            <label htmlFor="email" className={styles.label}>Email Address</label>
-                            <div className={styles.inputWrapper}>
-                                <Mail className={styles.inputIcon} size={20} />
-                                <input
-                                    type="email"
-                                    id="email"
-                                    className={styles.input}
-                                    placeholder="Enter your email address"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
+                        <Input
+                            label="Email Address"
+                            icon={<Mail size={20} />}
+                            type="email"
+                            placeholder="Enter your email address"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            disabled={loading}
+                        />
 
                         <div className={styles.formGroup}>
                             <label htmlFor="password" className={styles.label}>Password</label>
@@ -168,9 +158,15 @@ export default function SignupPage() {
                             </div>
                         </div>
 
-                        <button type="submit" className={styles.submitButton} disabled={loading}>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            fullWidth
+                            disabled={loading}
+                        >
                             {loading ? 'Creating Account...' : <>Create Account <UserPlus size={20} /></>}
-                        </button>
+                        </Button>
                     </form>
 
                     <div className={styles.divider}>Or</div>
