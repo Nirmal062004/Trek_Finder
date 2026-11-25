@@ -141,11 +141,11 @@ export default function HomePage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.8 }}
                     >
-                        <Button variant="primary" size="lg" onClick={() => handleNavigate('finder')}>
+                        <Button variant="primary" size="lg" fullWidth={false} onClick={() => handleNavigate('finder')}>
                             <span>Find Your Trail</span>
                             <ArrowRight size={20} />
                         </Button>
-                        <Button variant="secondary" size="lg" onClick={() => handleNavigate('gallery')}>
+                        <Button variant="secondary" size="lg" fullWidth={false} onClick={() => handleNavigate('gallery')}>
                             <Camera size={20} />
                             <span>View Gallery</span>
                         </Button>
@@ -298,7 +298,7 @@ export default function HomePage() {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                 >
-                    <Button variant="primary" size="lg" onClick={() => handleNavigate('finder')}>
+                    <Button variant="primary" size="lg" fullWidth={false} onClick={() => handleNavigate('finder')}>
                         Browse All {stats.trails > 0 ? stats.trails : ''} Trails
                         <ArrowRight size={20} />
                     </Button>
@@ -319,15 +319,14 @@ export default function HomePage() {
                     <motion.p variants={itemVariants} className={homeStyles['cta-description']}>
                         Don't let another weekend slip away. Equip yourself with the ultimate trekking intelligence and carve your name into the wild.
                     </motion.p>
-                    <motion.button
-                        variants={itemVariants}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={homeStyles['cta-action-button']}
+                    <Button
+                        variant="primary"
+                        size="lg"
+                        fullWidth={false}
                         onClick={() => handleNavigate('finder')}
                     >
                         <Rocket size={20} /> <span>Start Your Journey</span>
-                    </motion.button>
+                    </Button>
                 </motion.div>
             </section>
 

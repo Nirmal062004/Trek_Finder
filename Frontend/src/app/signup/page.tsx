@@ -147,14 +147,15 @@ export default function SignupPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     disabled={loading}
                                 />
-                                <button
+                                <Button
                                     type="button"
-                                    className={styles.passwordToggle}
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => setShowPassword(!showPassword)}
                                     title={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -173,9 +174,9 @@ export default function SignupPage() {
 
                     <p className={styles.loginPrompt}>
                         Already have an account?
-                        <button type="button" className={styles.loginLink} onClick={handleLoginClick}>
+                        <Button variant="ghost" size="sm" onClick={handleLoginClick}>
                             Sign In
-                        </button>
+                        </Button>
                     </p>
                 </div>
             </div>

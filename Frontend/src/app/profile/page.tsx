@@ -14,6 +14,7 @@ import { defaultCommunities, getIconByKey, Community } from '@/shared/services/c
 import MyStories from '@/components/MyStories';
 import AvatarEditor from '@/components/AvatarEditor';
 import { useAvatar } from '@/components/ui/useAvatar';
+import { Button } from '@/components/ui/Button';
 
 type Tab = 'overview' | 'travel-list' | 'community' | 'contributions' | 'achievements';
 
@@ -171,21 +172,9 @@ export default function ProfilePage() {
                     <div className={styles['card-icon']} style={{ margin: '0 auto 16px' }}><Mountain size={40} /></div>
                     <h4 className={styles['card-title']}>No Planned Treks</h4>
                     <p className={styles['card-desc']}>Explore the map and save treks to your wishlist!</p>
-                    <button
-                        onClick={() => router.push('/finder')}
-                        style={{
-                            marginTop: '16px',
-                            padding: '10px 24px',
-                            background: 'linear-gradient(135deg, #2bff88, #1aa355)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: '#000',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
-                    >
+                                        <Button variant="primary" size="md" onClick={() => router.push('/finder')}>
                         Find Treks
-                    </button>
+                                        </Button>
                 </div>
             ) : (
                 savedTreks.map((trek, i) => {
@@ -206,18 +195,22 @@ export default function ProfilePage() {
                             </div>
 
                             <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
-                                <button
+                                                            <Button
+                                                                variant={isCompleted ? 'secondary' : 'primary'}
+                                                                size="sm"
                                     onClick={() => toggleTrekCompletion(trek.id)}
                                     title={isCompleted ? "Mark Incomplete" : "Mark Complete"}
-                                    style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid rgba(43,255,136,0.3)', background: isCompleted ? 'rgba(43,255,136,0.1)' : 'transparent', color: '#2bff88', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}>
+                                                            >
                                     <Check size={16} />
-                                </button>
-                                <button
+                                                            </Button>
+                                                            <Button
+                                                                variant="danger"
+                                                                size="sm"
                                     onClick={() => removeTrek(trek.id)}
                                     title="Remove from List"
-                                    style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid rgba(255,69,58,0.3)', background: 'transparent', color: '#ff4444', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}>
+                                                            >
                                     <Trash2 size={16} />
-                                </button>
+                                                            </Button>
                             </div>
                         </div>
                     );
@@ -233,7 +226,9 @@ export default function ProfilePage() {
                     <div className={styles['card-icon']} style={{ margin: '0 auto 16px' }}><Users size={40} /></div>
                     <h4 className={styles['card-title']}>No Communities Joined</h4>
                     <p className={styles['card-desc']}>Join or create a community in the Chat Room to see them here!</p>
-                    <button onClick={() => router.push('/chat')} style={{ marginTop: '16px', padding: '10px 24px', background: 'linear-gradient(135deg, #2bff88, #1aa355)', border: 'none', borderRadius: 8, color: '#000', fontWeight: 600, cursor: 'pointer' }}>Go to Chat Room</button>
+                                        <Button variant="primary" size="md" onClick={() => router.push('/chat')}>
+                                            Go to Chat Room
+                                        </Button>
                 </div>
             ) : (
                 userCommunities.map((comm, i) => (
@@ -356,9 +351,9 @@ export default function ProfilePage() {
                         <>
                             <div className={styles['title-row']}>
                                 <h2 className={styles['title']}>{displayName}</h2>
-                                <button className={styles['edit-profile-btn']} onClick={() => setIsEditing(true)}>
+                                                            <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
                                     <Edit2 size={16} /> Edit Profile
-                                </button>
+                                                            </Button>
                             </div>
                             <div className={styles['subtitle']} style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
                                 <div style={{
@@ -408,12 +403,12 @@ export default function ProfilePage() {
 
                     {isEditing && (
                         <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                            <button onClick={handleSaveProfile} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: '#2bff88', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}>
+                                                <Button variant="primary" size="md" onClick={handleSaveProfile}>
                                 <Save size={16} /> Save Changes
-                            </button>
-                            <button onClick={() => setIsEditing(false)} style={{ padding: '8px 20px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
+                                                </Button>
+                                                <Button variant="ghost" size="md" onClick={() => setIsEditing(false)}>
                                 Cancel
-                            </button>
+                                                </Button>
                         </div>
                     )}
                 </div>

@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Users, Map, MessageSquare, Star, BarChart2, Search, Plus, Trash2, Edit, X, ArrowLeft, Menu, Image as ImageIcon } from 'lucide-react';
 import styles from '@/styles/Admin.module.css';
+import { Button } from '@/components/ui/Button';
 
 const AdminPage: React.FC = () => {
     const router = useRouter();
@@ -372,12 +373,12 @@ const AdminPage: React.FC = () => {
                                 })}
                                 <td style={{ textAlign: 'right' }}>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                        <button onClick={() => handleEdit(row)} className={styles.actionButton} style={{ color: '#3b82f6' }} title="Edit">
+                                                                            <Button variant="ghost" size="sm" onClick={() => handleEdit(row)} title="Edit">
                                             <Edit size={16} />
-                                        </button>
-                                        <button onClick={() => handleDelete(row.id, type)} className={`${styles.actionButton} ${styles.danger}`} title="Delete">
+                                                                            </Button>
+                                                                            <Button variant="danger" size="sm" onClick={() => handleDelete(row.id, type)} title="Delete">
                                             <Trash2 size={16} />
-                                        </button>
+                                                                            </Button>
                                     </div>
                                 </td>
                             </tr>
@@ -442,8 +443,12 @@ const AdminPage: React.FC = () => {
                         </div>
                     ))}
                     <div className={styles.modalActions}>
-                        <button onClick={() => { setIsAddModalOpen(false); setNewItem({}); setEditingId(null); }} className={styles.cancelBtn}>Cancel</button>
-                        <button onClick={handleSaveItem} className={styles.saveBtn}>{editingId ? 'Update' : 'Save'} Record</button>
+                                            <Button variant="ghost" size="md" onClick={() => { setIsAddModalOpen(false); setNewItem({}); setEditingId(null); }}>
+                                                Cancel
+                                            </Button>
+                                            <Button variant="primary" size="md" onClick={handleSaveItem}>
+                                                {editingId ? 'Update' : 'Save'} Record
+                                            </Button>
                     </div>
                 </div>
             </div>
@@ -464,13 +469,13 @@ const AdminPage: React.FC = () => {
                         </h2>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             {selectedIds.length > 0 && (
-                                <button onClick={handleBulkDelete} className={`${styles.addButton} ${styles.danger}`} style={{ backgroundColor: '#ef4444' }}>
+                                                        <Button variant="danger" size="md" onClick={handleBulkDelete}>
                                     <Trash2 size={18} /> Delete ({selectedIds.length})
-                                </button>
+                                                        </Button>
                             )}
-                            <button onClick={() => { setIsAddModalOpen(true); setNewItem({}); setEditingId(null); }} className={styles.addButton}>
+                                                    <Button variant="primary" size="md" onClick={() => { setIsAddModalOpen(true); setNewItem({}); setEditingId(null); }}>
                                 <Plus size={18} /> Add New
-                            </button>
+                                                    </Button>
                         </div>
                     </div>
 

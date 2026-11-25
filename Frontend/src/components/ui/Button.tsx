@@ -21,18 +21,18 @@ export function Button({
     disabled,
     ...props
 }: ButtonProps) {
-    const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none disabled:hover:transform-none active:scale-95';
 
     const variants: Record<ButtonVariant, string> = {
-        primary: 'bg-gradient-to-r from-#2bff88 to-#1aa355 text-[#0d1810] hover:from-#4ade80 hover:to-#158042 focus:ring-#2bff88',
-        secondary: 'bg-[#1a2c20] text-white border border-[#2bff88]/30 hover:bg-[#2bff88]/10 hover:text-#2bff88 focus:ring-#2bff88',
-        danger: 'bg-[#ff4444]/10 text-#ff4444 border border-[#ff4444]/30 hover:bg-[#ff4444]/20 hover:text-#ff6b6b focus:ring-#ff4444',
-        ghost: 'bg-transparent text-white hover:bg-[#2bff88]/10 focus:ring-#2bff88',
-        outline: 'bg-transparent text-white border border-white/20 hover:bg-white/10 focus:ring-white',
+        primary: 'bg-gradient-to-r from-#27e87c to-#1abf62 text-[#06100d] hover:from-#4ade80 hover:to-#27e87c hover:shadow-[0_0_30px_rgba(39,232,124,0.4)] focus:ring-#27e87c/50',
+        secondary: 'bg-[#132a22] text-white border border-[#27e87c]/30 hover:bg-[#27e87c]/10 hover:text-#27e87c hover:shadow-[0_0_20px_rgba(39,232,124,0.2)] focus:ring-#27e87c/50',
+        danger: 'bg-[#ff4d4d]/10 text-#ff4d4d border border-[#ff4d4d]/30 hover:bg-[#ff4d4d]/20 hover:text-#ff6b6b hover:shadow-[0_0_20px_rgba(255,77,77,0.2)] focus:ring-#ff4d4d/50',
+        ghost: 'bg-transparent text-white hover:bg-[#27e87c]/10 hover:shadow-none focus:ring-#27e87c/50',
+        outline: 'bg-transparent text-white border border-white/20 hover:bg-white/10 hover:border-white/30 focus:ring-white/50',
     };
 
     const sizes: Record<'sm' | 'md' | 'lg', string> = {
-        sm: 'px-3 py-1.5 text-sm',
+        sm: 'px-4 py-2 text-sm',
         md: 'px-6 py-3 text-base',
         lg: 'px-8 py-4 text-lg',
     };

@@ -121,14 +121,15 @@ export default function LoginPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     disabled={loading}
                                 />
-                                <button
+                                <Button
                                     type="button"
-                                    className={styles.passwordToggle}
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => setShowPassword(!showPassword)}
                                     title={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -147,9 +148,9 @@ export default function LoginPage() {
 
                     <p className={styles.signupPrompt}>
                         New to Trek Finder?
-                        <button type="button" className={styles.loginLink} onClick={() => router.push('/signup')}>
+                        <Button variant="ghost" size="sm" onClick={() => router.push('/signup')}>
                             Create an Account
-                        </button>
+                        </Button>
                     </p>
                 </div>
             </div>

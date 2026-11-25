@@ -9,6 +9,9 @@ import { createPortal } from 'react-dom';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 
 import { galleryStates, TrekState, MediaItem, District } from '@/shared/data/galleryData';
 
@@ -339,12 +342,13 @@ const Gallery: React.FC = () => {
       <div className={styles['story-mode-container']}>
         <div className={styles['story-content-wrapper']}>
           <div className={styles['preview-section']}>
-            <button
-              className={styles['story-back-btn']}
+                      <Button
+                        variant="ghost"
+                        size="sm"
               onClick={() => setIsContributeOpen(false)}
             >
               <ArrowLeft size={20} /> Back to Gallery
-            </button>
+                      </Button>
 
             <div className={styles['preview-card']}>
               <div className={styles['preview-image-placeholder']}>
@@ -471,9 +475,9 @@ const Gallery: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className={styles['publish-btn']}>
+              <Button type="submit" variant="primary" size="lg" fullWidth>
                 Publish Story
-              </button>
+                            </Button>
 
             </form>
           </div>
@@ -493,52 +497,34 @@ const Gallery: React.FC = () => {
           </p>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 24, marginBottom: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
+                      <Button
+                        variant={viewMode === 'explore' ? 'primary' : 'outline'}
+                        size="md"
               onClick={() => setViewMode('explore')}
-              style={{
-                background: viewMode === 'explore' ? '#2bff88' : 'transparent',
-                color: viewMode === 'explore' ? '#000' : '#fff',
-                border: '1px solid #2bff88',
-                padding: '10px 24px',
-                borderRadius: '24px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                transition: 'all 0.2s',
-                opacity: viewMode === 'explore' ? 1 : 0.7
-              }}
             >
               Explore Gallery
-            </button>
-            <button
+                      </Button>
+                      <Button
+                        variant={viewMode === 'my-stories' ? 'primary' : 'outline'}
+                        size="md"
               onClick={() => { setViewMode('my-stories'); fetchUserStories(); }}
-              style={{
-                background: viewMode === 'my-stories' ? '#2bff88' : 'transparent',
-                color: viewMode === 'my-stories' ? '#000' : '#fff',
-                border: '1px solid #2bff88',
-                padding: '10px 24px',
-                borderRadius: '24px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                transition: 'all 0.2s',
-                opacity: viewMode === 'my-stories' ? 1 : 0.7
-              }}
             >
               My Stories {userStories.length > 0 && `(${userStories.length})`}
-            </button>
+                      </Button>
           </div>
 
           <div className={styles['header-actions']} style={{ marginTop: 0 }}>
-            <button
-              className={styles['action-btn']}
+                      <Button
+                        variant="secondary"
+                        size="md"
               onClick={() => {
                 setContributionType('blog');
                 setFormTitle(''); setFormState(''); setFormDistrict(''); setFormTrekName(''); setFormCommunity(''); setFormDescription(''); setFormPreview(null); setFormFile(null); setEditingId(null);
                 setIsContributeOpen(true);
               }}
-              style={{ background: 'rgba(43, 255, 136, 0.1)', color: '#2bff88', border: '1px solid rgba(43, 255, 136, 0.3)' }}
             >
               <PenTool size={18} /> + Share New Story
-            </button>
+                      </Button>
           </div>
         </div>
 
@@ -694,18 +680,12 @@ const Gallery: React.FC = () => {
                         {story.description || 'No description provided.'}
                       </p>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button
-                          onClick={() => handleEditStory(story)}
-                          style={{ flex: 1, padding: '8px', background: '#222', color: '#fff', border: '1px solid #444', borderRadius: 6, cursor: 'pointer' }}
-                        >
+                                              <Button variant="secondary" size="sm" onClick={() => handleEditStory(story)}>
                           Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteStory(story.id)}
-                          style={{ flex: 1, padding: '8px', background: 'rgba(255,68,68,0.1)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.2)', borderRadius: 6, cursor: 'pointer' }}
-                        >
+                                              </Button>
+                                              <Button variant="danger" size="sm" onClick={() => handleDeleteStory(story.id)}>
                           Delete
-                        </button>
+                                              </Button>
                       </div>
                     </div>
                   </div>

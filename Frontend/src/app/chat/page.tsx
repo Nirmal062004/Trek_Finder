@@ -11,6 +11,7 @@ import { Compass, MessageSquare, Users, LogOut, Search, Plus, Trash2, Paperclip,
 import { getIconByKey, availableIconKeys, iconRegistry, Community } from '@/shared/services/communityData';
 import AvatarEditor from '@/components/AvatarEditor';
 import { useAvatar } from '@/components/ui/useAvatar';
+import { Button } from '@/components/ui/Button';
 
 interface Message {
     id: number;
@@ -404,11 +405,13 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <span className={styles['item-preview']}>{comm.members} Members</span>
                                             {!isJoined(comm.id) && (
-                                                <button
+                                                                                            <Button
+                                                                                                variant="primary"
+                                                                                                size="sm"
                                                     onClick={(e) => handleJoinCommunity(e, comm.id)}
-                                                    style={{ background: '#2bff88', border: 'none', borderRadius: 4, padding: '2px 10px', color: '#000', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
+                                                                                            >
                                                     JOIN
-                                                </button>
+                                                                                            </Button>
                                             )}
                                         </div>
                                     </div>
@@ -542,7 +545,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                                         style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(43,255,136,0.3)', borderRadius: 8, padding: '12px', color: '#fff', outline: 'none', fontSize: '1.2rem', letterSpacing: '2px', textAlign: 'center' }}
                                     />
                                 </div>
-                                <button type="submit" style={{ width: '100%', padding: '12px', background: '#2bff88', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>ADD FRIEND</button>
+                                <Button type="submit" variant="primary" size="md" fullWidth>
+                                ADD FRIEND
+                            </Button>
                             </form>
                         </div>
                     </div>
@@ -589,7 +594,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                                     <label style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 5 }}>Description</label>
                                     <textarea style={{ width: '100%', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', padding: 10, borderRadius: 8 }} value={newCommunity.description} onChange={(e) => setNewCommunity({ ...newCommunity, description: e.target.value })} placeholder="What is this group about?" />
                                 </div>
-                                <button type="submit" style={{ width: '100%', padding: '12px', background: '#2bff88', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>CREATE</button>
+                                <Button type="submit" variant="primary" size="md" fullWidth>
+                                CREATE
+                            </Button>
                             </form>
                         </div>
                     </div>
