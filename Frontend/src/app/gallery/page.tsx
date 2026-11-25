@@ -3,12 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from '@/styles/Gallery.module.css';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Image as ImageIcon, X, Upload, PenTool, ArrowLeft, Trash2, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, X, Upload, PenTool, ArrowLeft, MapPin } from 'lucide-react';
 import { defaultCommunities, getIconByKey, Community } from '@/shared/services/communityData';
 import { createPortal } from 'react-dom';
-import Navigation from '@/components/Navigation';
 import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import type { StoryRecord } from '@/shared/services/api';
 
 import { galleryStates, TrekState, MediaItem, District } from '@/shared/data/galleryData';
 
@@ -16,53 +16,63 @@ const Gallery: React.FC = () => {
   const { user } = useAuth();
   const userName = user?.name || (typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Anonymous' : 'Anonymous');
   const userEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('userEmail') || '' : '');
-  const [userStories, setUserStories] = useState<any[]>([]);
+  const [userStoryResult, setUserStoryResult] = useState<{ email: string; stories: StoryRecord[] }>({ email: '', stories: [] });
+  const userStories = userStoryResult.email === userEmail ? userStoryResult.stories : [];
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [allStories, setAllStories] = useState<any[]>([]);
-  const [states, setStates] = useState<TrekState[]>(galleryStates);
+  const [allStories, setAllStories] = useState<StoryRecord[]>([]);
 
   // Fetch all public stories
-  const fetchAllStories = async () => {
+  const fetchAllStories = useCallback(async (): Promise<StoryRecord[]> => {
     try {
-      if (!supabase) return;
       const { data, error } = await supabase
         .from('stories')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setAllStories(data || []);
+      return (data || []) as StoryRecord[];
     } catch (err) {
       console.warn('Could not fetch stories:', err);
+      return [];
     }
-  };
+  }, []);
 
-  const fetchUserStories = async () => {
+  const fetchUserStories = useCallback(async (): Promise<{ email: string; stories: StoryRecord[] } | null> => {
     try {
-      if (!supabase) return;
       const email = userEmail || '';
-      if (!email) {
-        setUserStories([]);
-        return;
-      }
+      if (!email) return null;
       const { data, error } = await supabase
         .from('stories')
         .select('*')
         .order('created_at', { ascending: false })
         .eq('user_email', email);
       if (error) throw error;
-      setUserStories(data || []);
+      return { email, stories: (data || []) as StoryRecord[] };
     } catch (err) {
       console.warn('Could not fetch user stories:', err);
+      return null;
     }
-  };
-
-  useEffect(() => {
-    fetchAllStories();
-    fetchUserStories();
   }, [userEmail]);
 
-  // Build states and districts dynamically from stories
   useEffect(() => {
+    let active = true;
+    const loadStories = async () => {
+      const [stories, personalStories] = await Promise.all([fetchAllStories(), fetchUserStories()]);
+      if (!active) return;
+      setAllStories(stories);
+      if (personalStories) setUserStoryResult(personalStories);
+    };
+    void loadStories();
+    return () => { active = false; };
+  }, [fetchAllStories, fetchUserStories]);
+
+  const refreshStories = useCallback(async () => {
+    const [stories, personalStories] = await Promise.all([fetchAllStories(), fetchUserStories()]);
+    setAllStories(stories);
+    if (personalStories) setUserStoryResult(personalStories);
+  }, [fetchAllStories, fetchUserStories]);
+
+  // Build states and districts dynamically from stories
+  const states = useMemo((): TrekState[] => {
     // Helper function to convert to Title Case
     const toTitleCase = (str: string) => {
       return str
@@ -73,10 +83,7 @@ const Gallery: React.FC = () => {
     };
 
     // Start with base states (no districts)
-    if (allStories.length === 0) {
-      setStates(galleryStates);
-      return;
-    }
+    if (allStories.length === 0) return galleryStates;
 
     // Group stories by state and district
     const storyMap = new Map<string, Map<string, MediaItem[]>>();
@@ -98,13 +105,13 @@ const Gallery: React.FC = () => {
 
       districtMap.get(districtKey)!.push({
         id: story.id,
-        type: story.media_type || 'image',
+        type: 'image',
         src: story.media_url || '/assets/img/image.jpg',
         title: story.title || 'Untitled',
         location: story.trek_name || story.district,
-        community: story.community,
-        communityName: story.community_name,
-        description: story.description
+        community: story.community || undefined,
+        communityName: story.community_name || undefined,
+        description: story.description || undefined
       });
     });
 
@@ -135,10 +142,10 @@ const Gallery: React.FC = () => {
       };
     });
 
-    setStates(builtStates);
+    return builtStates;
   }, [allStories]);
 
-  const handleEditStory = (story: any) => {
+  const handleEditStory = (story: StoryRecord) => {
     setEditingId(story.id);
     setFormTitle(story.title || '');
     setFormState(story.state || '');
@@ -166,8 +173,7 @@ const Gallery: React.FC = () => {
       }
       const { error } = await supabase.from('stories').delete().eq('id', id);
       if (error) throw error;
-      await fetchUserStories();
-      await fetchAllStories();
+      await refreshStories();
     } catch (err) {
       console.error('Delete failed', err);
     }
@@ -178,7 +184,6 @@ const Gallery: React.FC = () => {
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'explore' | 'my-stories'>('explore');
-  const [contributionType, setContributionType] = useState<'media' | 'blog'>('media');
   const [formTitle, setFormTitle] = useState('');
   const [formState, setFormState] = useState('');
   const [formDistrict, setFormDistrict] = useState('');
@@ -192,15 +197,10 @@ const Gallery: React.FC = () => {
     () => states[currentIndex] || { id: '', name: '', subtitle: '', districts: [] },
     [states, currentIndex]
   );
-  const [activeDistrictId, setActiveDistrictId] = useState('');
-
-  useEffect(() => {
-    if (activeState.districts && activeState.districts.length > 0) {
-      setActiveDistrictId(activeState.districts[0].id);
-    } else {
-      setActiveDistrictId('');
-    }
-  }, [activeState]);
+  const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const activeDistrictId = activeState.districts.some((district) => district.id === selectedDistrictId)
+    ? selectedDistrictId
+    : activeState.districts[0]?.id || '';
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -251,6 +251,10 @@ const Gallery: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      alert('Please sign in again before sharing a story.');
+      return;
+    }
     if (!formState || !formDistrict) {
       alert('Please select a state and enter a district name.');
       return;
@@ -267,10 +271,10 @@ const Gallery: React.FC = () => {
       let storagePath: string | null = null;
 
       if (formFile && supabase) {
-        const safeName = `${Date.now()}-${formFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
+        const safeName = `${globalThis.crypto.randomUUID()}-${formFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
         storagePath = `stories/${userEmail || 'anon'}/${safeName}`;
         try {
-          const { error: uploadErr } = await supabase.storage.from('trek-images').upload(storagePath, formFile as File, { cacheControl: '3600', upsert: false });
+          const { error: uploadErr } = await supabase.storage.from('trek-images').upload(storagePath, formFile, { cacheControl: '3600', upsert: false });
           if (uploadErr) {
             console.error('Supabase storage upload failed:', uploadErr);
             alert(`Failed to upload image: ${uploadErr.message}`);
@@ -284,7 +288,7 @@ const Gallery: React.FC = () => {
         }
       }
 
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         title: formTitle || formTrekName || 'Untitled',
         state: formState,
         district: formDistrict,
@@ -296,6 +300,7 @@ const Gallery: React.FC = () => {
         media_type: formFile ? (formFile.type.startsWith('video') ? 'video' : 'image') : 'image',
         user_name: userName,
         user_email: userEmail || null,
+        user_id: user.id,
         storage_path: storagePath,
       };
 
@@ -325,11 +330,10 @@ const Gallery: React.FC = () => {
       setFormPreview(null);
       setIsContributeOpen(false);
 
-      await fetchUserStories();
-      await fetchAllStories(); // Refresh gallery data
-    } catch (err: any) {
-      console.error('Error saving story:', err);
-      alert(`Failed to save story: ${err?.message || 'Unknown error'}`);
+      await refreshStories(); // Refresh gallery data
+    } catch (error) {
+      console.error('Error saving story:', error);
+      alert(`Failed to save story: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -510,7 +514,12 @@ const Gallery: React.FC = () => {
               Explore Gallery
             </button>
             <button
-              onClick={() => { setViewMode('my-stories'); fetchUserStories(); }}
+              onClick={() => {
+                setViewMode('my-stories');
+                void fetchUserStories().then((personalStories) => {
+                  if (personalStories) setUserStoryResult(personalStories);
+                });
+              }}
               style={{
                 background: viewMode === 'my-stories' ? '#2bff88' : 'transparent',
                 color: viewMode === 'my-stories' ? '#000' : '#fff',
@@ -531,7 +540,6 @@ const Gallery: React.FC = () => {
             <button
               className={styles['action-btn']}
               onClick={() => {
-                setContributionType('blog');
                 setFormTitle(''); setFormState(''); setFormDistrict(''); setFormTrekName(''); setFormCommunity(''); setFormDescription(''); setFormPreview(null); setFormFile(null); setEditingId(null);
                 setIsContributeOpen(true);
               }}
@@ -600,7 +608,7 @@ const Gallery: React.FC = () => {
                     key={district.id}
                     className={`${styles['district-tab']} ${activeDistrictId === district.id ? styles.active : ''}
                   `}
-                    onClick={() => setActiveDistrictId(district.id)}
+                    onClick={() => setSelectedDistrictId(district.id)}
                   >
                     {district.name}
                   </button>
@@ -640,7 +648,6 @@ const Gallery: React.FC = () => {
                 <button
                   className={styles['action-btn']}
                   onClick={() => {
-                    setContributionType('blog');
                     setFormTitle(''); setFormState(''); setFormDistrict(''); setFormTrekName(''); setFormCommunity(''); setFormDescription(''); setFormPreview(null); setFormFile(null); setEditingId(null);
                     setIsContributeOpen(true);
                   }}
@@ -657,17 +664,17 @@ const Gallery: React.FC = () => {
                       style={{ position: 'relative', height: 180, background: '#000', cursor: 'pointer' }}
                       onClick={() => setSelectedMedia({
                         id: story.id,
-                        type: story.media_type || 'image',
-                        src: story.mediaUrl || story.media_url,
+                        type: 'image',
+                        src: story.media_url || '/assets/img/image.jpg',
                         title: story.title,
                         location: story.trek_name || story.district || '',
-                        description: story.description
+                        description: story.description || undefined
                       })}
                     >
                       {story.mediaUrl || story.media_url ? (
                         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                           <Image
-                            src={story.mediaUrl || story.media_url}
+                            src={story.media_url || '/assets/img/image.jpg'}
                             alt={story.title}
                             fill
                             style={{ objectFit: 'cover' }}

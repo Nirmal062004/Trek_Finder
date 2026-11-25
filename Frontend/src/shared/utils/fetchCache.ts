@@ -1,5 +1,5 @@
 type CacheEntry = {
-  data: any;
+  data: unknown;
   expiry: number;
   fetching?: boolean;
 };
@@ -19,13 +19,13 @@ export function makeCacheKey(prefix: string, value: string) {
   return `${prefix}:${simpleHash(value)}`;
 }
 
-export async function fetchWithStaleWhileRevalidate(key: string, fetcher: () => Promise<any>, ttl = 1000 * 60 * 5) {
+export async function fetchWithStaleWhileRevalidate<T>(key: string, fetcher: () => Promise<T>, ttl = 1000 * 60 * 5): Promise<T> {
   const now = Date.now();
   const entry = cache.get(key);
 
   if (entry) {
     // fresh
-    if (entry.expiry > now) return entry.data;
+    if (entry.expiry > now) return entry.data as T;
 
     // stale: return stale immediately and revalidate in background
     if (!entry.fetching) {
@@ -42,7 +42,7 @@ export async function fetchWithStaleWhileRevalidate(key: string, fetcher: () => 
           if (e) e.fetching = false;
         });
     }
-    return entry.data;
+    return entry.data as T;
   }
 
   // miss: fetch and cache

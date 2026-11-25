@@ -3,9 +3,10 @@
 import React from 'react';
 import { Heart, Clock, Star, MapPin, Ruler } from 'lucide-react';
 import styles from '@/styles/TrekFinder.module.css';
+import type { TrekSummary } from '@/context/WishlistContext';
 
 interface TrekCardProps {
-    trek: any;
+    trek: TrekSummary;
     name: string;
     isSaved: boolean;
     onSave: (e: React.MouseEvent) => void;

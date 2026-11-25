@@ -1,26 +1,20 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { RefreshCw, Save } from 'lucide-react';
+import Image from 'next/image';
 
 interface AvatarEditorProps {
     isOpen: boolean;
     currentSeed: string;
+    initialOptions?: string[];
     onClose: () => void;
     onSave: (seed: string) => void;
 }
 
-export default function AvatarEditor({ isOpen, currentSeed, onClose, onSave }: AvatarEditorProps) {
+export default function AvatarEditor({ isOpen, currentSeed, initialOptions = [currentSeed], onClose, onSave }: AvatarEditorProps) {
     const [tempSeed, setTempSeed] = useState(currentSeed);
-    const [options, setOptions] = useState<string[]>([currentSeed]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        setTempSeed(currentSeed);
-        const extra: string[] = [];
-        for (let i = 0; i < 9; i++) extra.push(Math.random().toString(36).substring(7));
-        setOptions([currentSeed, ...extra]);
-    }, [currentSeed, isOpen]);
+    const [options, setOptions] = useState<string[]>(initialOptions);
 
     const generateOptions = useCallback(() => {
         const extra: string[] = [];
@@ -51,7 +45,7 @@ export default function AvatarEditor({ isOpen, currentSeed, onClose, onSave }: A
                                 transition: 'all 0.2s'
                             }}
                         >
-                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`} alt={`Option ${idx}`} style={{ width: '100%', height: '100%' }} />
+                            <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`} alt={`Avatar option ${idx + 1}`} width={64} height={64} unoptimized style={{ width: '100%', height: '100%' }} />
                         </div>
                     ))}
                 </div>

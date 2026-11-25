@@ -1,31 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import type { StoryRecord } from '@/shared/services/api';
 
 export default function MyStories() {
   const { user } = useAuth();
   const userEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('userEmail') || '' : '');
-  const [stories, setStories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [storyResult, setStoryResult] = useState<{ email: string; stories: StoryRecord[] }>({ email: '', stories: [] });
+  const stories = storyResult.email === userEmail ? storyResult.stories : [];
+  const [loading, setLoading] = useState(true);
 
-  const fetchStories = async () => {
+  const fetchStories = useCallback(async (): Promise<StoryRecord[]> => {
+    if (!userEmail) return [];
     try {
-      setLoading(true);
       const { data, error } = await supabase.from('stories').select('*').eq('user_email', userEmail).order('created_at', { ascending: false });
       if (error) throw error;
-      setStories(data || []);
+      return (data || []) as StoryRecord[];
     } catch (err) {
       console.warn('Failed to load stories', err);
-    } finally {
-      setLoading(false);
+      return [];
     }
-  };
-
-  useEffect(() => {
-    if (userEmail) fetchStories();
   }, [userEmail]);
 
-  const handleEdit = async (s: any) => {
+  useEffect(() => {
+    let active = true;
+    const loadStories = async () => {
+      const loadedStories = await fetchStories();
+      if (!active) return;
+      setStoryResult({ email: userEmail, stories: loadedStories });
+      setLoading(false);
+    };
+    void loadStories();
+    return () => { active = false; };
+  }, [fetchStories, userEmail]);
+
+  const refreshStories = useCallback(async () => {
+    const loadedStories = await fetchStories();
+    setStoryResult({ email: userEmail, stories: loadedStories });
+  }, [fetchStories, userEmail]);
+
+  const handleEdit = async (s: StoryRecord) => {
     const newTitle = window.prompt('Edit title', s.title || '');
     if (newTitle === null) return;
     const newDesc = window.prompt('Edit description', s.description || '');
@@ -33,7 +48,7 @@ export default function MyStories() {
     try {
       const { error } = await supabase.from('stories').update({ title: newTitle, description: newDesc }).eq('id', s.id);
       if (error) throw error;
-      await fetchStories();
+      await refreshStories();
       alert('Updated');
     } catch (err) {
       console.error(err);
@@ -41,7 +56,7 @@ export default function MyStories() {
     }
   };
 
-  const handleDelete = async (s: any) => {
+  const handleDelete = async (s: StoryRecord) => {
     if (!confirm('Delete this story?')) return;
     try {
       if (s.storage_path) {
@@ -49,7 +64,7 @@ export default function MyStories() {
       }
       const { error } = await supabase.from('stories').delete().eq('id', s.id);
       if (error) throw error;
-      await fetchStories();
+      await refreshStories();
       alert('Deleted');
     } catch (err) {
       console.error(err);
@@ -66,7 +81,7 @@ export default function MyStories() {
         {stories.map((s) => (
           <div key={s.id} style={{ background: 'rgba(13,24,16,0.7)', padding: 12, borderRadius: 8 }}>
             <div style={{ height: 140, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {s.media_url ? <img src={s.media_url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} /> : <div style={{ color: '#777' }}>No media</div>}
+              {s.media_url ? <Image src={s.media_url} alt={s.title} width={260} height={140} unoptimized style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} /> : <div style={{ color: '#777' }}>No media</div>}
             </div>
             <div style={{ color: '#fff', fontWeight: 700, marginTop: 8 }}>{s.title}</div>
             <div style={{ color: '#bbb', fontSize: 13, marginTop: 6 }}>{s.trek_name || `${s.district}, ${s.state}`}</div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import styles from '@/styles/Profile.module.css';
 import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -8,13 +9,39 @@ import { authAPI } from '@/shared/services/api';
 import { useRouter } from 'next/navigation';
 import {
     Edit2, Mountain, Users, Star, Camera, Map as MapIcon, PenTool, Award, Globe, Flame,
-    Calendar, Clock, Check, X, MapPin, Instagram, Twitter, Linkedin, Save, Trash2
+    Clock, Check, Save, Trash2
 } from 'lucide-react';
 import { defaultCommunities, getIconByKey, Community } from '@/shared/services/communityData';
 import MyStories from '@/components/MyStories';
 import AvatarEditor from '@/components/AvatarEditor';
+import type { TrekSummary } from '@/context/WishlistContext';
 
 type Tab = 'overview' | 'travel-list' | 'community' | 'contributions' | 'achievements';
+
+const COMPLETED_TREKS_KEY = 'trek_finder_completed_treks';
+
+function readCompletedTreks(): (number | string)[] {
+    if (typeof window === 'undefined') return [];
+    try {
+        const parsed: unknown = JSON.parse(localStorage.getItem(COMPLETED_TREKS_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed.filter((id): id is number | string => typeof id === 'number' || typeof id === 'string') : [];
+    } catch {
+        return [];
+    }
+}
+
+function readUserCommunities(): Community[] {
+    if (typeof window === 'undefined') return [];
+    try {
+        const customValue: unknown = JSON.parse(localStorage.getItem('trek_finder_custom_communities') || '[]');
+        const joinedValue: unknown = JSON.parse(localStorage.getItem('trek_finder_joined_communities') || '[]');
+        const customCommunities = Array.isArray(customValue) ? customValue as Community[] : [];
+        const joinedIds = Array.isArray(joinedValue) ? joinedValue.filter((id): id is string => typeof id === 'string') : [];
+        return [...defaultCommunities, ...customCommunities].filter((community) => joinedIds.includes(community.id));
+    } catch {
+        return [];
+    }
+}
 
 export default function ProfilePage() {
     const { user, updateUser } = useAuth(); // Get updateUser from context
@@ -22,7 +49,9 @@ export default function ProfilePage() {
     const { savedTreks, removeTrek } = useWishlist();
 
     // -- Profile State --
-    const [displayName, setDisplayName] = useState<string>('Trekker');
+    const [displayName, setDisplayName] = useState<string>(() =>
+        user?.name || (typeof window !== 'undefined' ? localStorage.getItem('trek_finder_profile_name') : null) || user?.email?.split('@')[0] || 'Trekker'
+    );
 
 
     // -- Modes --
@@ -30,69 +59,34 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState<Tab>('overview');
 
     // -- Data State --
-    const [userCommunities, setUserCommunities] = useState<Community[]>([]);
-    const [completedTreks, setCompletedTreks] = useState<(number | string)[]>([]); // Array of Trek IDs
+    const [userCommunities] = useState<Community[]>(readUserCommunities);
+    const [completedTreks, setCompletedTreks] = useState<(number | string)[]>(readCompletedTreks);
 
     const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
-    const [lastCompletedTrek, setLastCompletedTrek] = useState<any>(null);
+    const [lastCompletedTrek, setLastCompletedTrek] = useState<TrekSummary | null>(null);
+    const [confettiPieces, setConfettiPieces] = useState<Array<{ id: number; left: number; delay: number; color: string }>>([]);
 
     // -- Avatar State --
-    const [avatarSeed, setAvatarSeed] = useState<string>('');
+    const [avatarSeed, setAvatarSeed] = useState<string>(() => {
+        const owner = user?.id || user?.email || user?.name || 'anon';
+        return typeof window !== 'undefined'
+            ? localStorage.getItem(`trek_finder_avatar_seed_${owner}`) || user?.name || ''
+            : user?.name || '';
+    });
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
-    const [tempAvatarSeed, setTempAvatarSeed] = useState('');
     const [avatarOptions, setAvatarOptions] = useState<string[]>([]);
 
-    // -- Initialization --
     useEffect(() => {
-        if (user) {
-            // Load Basic Info - Prefer user.name from context as source of truth
-            const name = user.name || localStorage.getItem('trek_finder_profile_name') || user.email?.split('@')[0] || 'Trekker';
-            setDisplayName(name);
-
-            const savedCompleted = localStorage.getItem('trek_finder_completed_treks');
-            if (savedCompleted) setCompletedTreks(JSON.parse(savedCompleted));
-
-            // Sync Avatar
-            const updateAvatar = () => {
-                const uid = (user as any)?.id || user.email || user.name || 'anon';
-                const storageKey = `trek_finder_avatar_seed_${uid}`;
-                const seed = localStorage.getItem(storageKey) || name;
-                setAvatarSeed(seed);
-            };
-
-            updateAvatar();
-            window.addEventListener('storage', updateAvatar);
-            window.addEventListener('avatar-updated', updateAvatar);
-
-            return () => {
-                window.removeEventListener('storage', updateAvatar);
-                window.removeEventListener('avatar-updated', updateAvatar);
-            };
-        }
-    }, [user]);
-
-    // Load Communities
-    useEffect(() => {
-        const fetchCommunities = () => {
-            const savedCustom = localStorage.getItem('trek_finder_custom_communities');
-            const savedJoinedIds = localStorage.getItem('trek_finder_joined_communities');
-
-            let customComms: Community[] = [];
-            let joinedIds: string[] = [];
-
-            if (savedCustom) {
-                try { customComms = JSON.parse(savedCustom); } catch (e) { console.error(e); }
-            }
-            if (savedJoinedIds) {
-                try { joinedIds = JSON.parse(savedJoinedIds); } catch (e) { console.error(e); }
-            }
-
-            const allComms = [...defaultCommunities, ...customComms];
-            const myComms = allComms.filter(c => joinedIds.includes(c.id));
-            setUserCommunities(myComms);
+        if (!user) return;
+        const owner = user.id || user.email || user.name || 'anon';
+        const updateAvatar = () => setAvatarSeed(localStorage.getItem(`trek_finder_avatar_seed_${owner}`) || user.name);
+        window.addEventListener('storage', updateAvatar);
+        window.addEventListener('avatar-updated', updateAvatar);
+        return () => {
+            window.removeEventListener('storage', updateAvatar);
+            window.removeEventListener('avatar-updated', updateAvatar);
         };
-        fetchCommunities();
-    }, []);
+    }, [user]);
 
     // -- Handlers --
 
@@ -123,6 +117,13 @@ export default function ProfilePage() {
             const trek = savedTreks.find(t => t.id === trekId);
             if (trek) {
                 setLastCompletedTrek(trek);
+                const colors = ['#2bff88', '#ffeb3b', '#42a5f5', '#ff4444'];
+                setConfettiPieces(Array.from({ length: 20 }, (_, id) => ({
+                    id,
+                    left: Math.random() * 100,
+                    delay: Math.random() * 2,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                })));
                 setShowCompletionOverlay(true);
             }
         }
@@ -132,24 +133,15 @@ export default function ProfilePage() {
 
     // -- Avatar Handlers --
     const openAvatarEditor = () => {
-        setTempAvatarSeed(avatarSeed);
-        generateAvatarOptions(avatarSeed);
+        setAvatarOptions([avatarSeed, ...Array.from({ length: 9 }, () => Math.random().toString(36).substring(7))]);
         setShowAvatarEditor(true);
     };
 
-    const generateAvatarOptions = (currentSeed: string) => {
-        const options = [currentSeed];
-        for (let i = 0; i < 9; i++) {
-            options.push(Math.random().toString(36).substring(7));
-        }
-        setAvatarOptions(options);
-    };
-
-    const saveNewAvatar = () => {
-        setAvatarSeed(tempAvatarSeed);
-        const uid = (user as any)?.id || user?.email || user?.name || 'anon';
+    const saveNewAvatar = (seed: string) => {
+        setAvatarSeed(seed);
+        const uid = user?.id || user?.email || user?.name || 'anon';
         const storageKey = `trek_finder_avatar_seed_${uid}`;
-        localStorage.setItem(storageKey, tempAvatarSeed);
+        localStorage.setItem(storageKey, seed);
         window.dispatchEvent(new Event('avatar-updated'));
         setShowAvatarEditor(false);
     };
@@ -314,11 +306,11 @@ export default function ProfilePage() {
         return (
             <div className={styles['completion-overlay']}>
                 <div className={styles['confetti-container']}>
-                    {Array.from({ length: 20 }).map((_, i) => (
-                        <div key={i} className={styles.confetti} style={{
-                            left: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 2}s`,
-                            backgroundColor: ['#2bff88', '#ffeb3b', '#42a5f5', '#ff4444'][Math.floor(Math.random() * 4)]
+                    {confettiPieces.map((piece) => (
+                        <div key={piece.id} className={styles.confetti} style={{
+                            left: `${piece.left}%`,
+                            animationDelay: `${piece.delay}s`,
+                            backgroundColor: piece.color
                         }} />
                     ))}
                 </div>
@@ -328,7 +320,7 @@ export default function ProfilePage() {
                         <Check size={48} className={styles['success-icon']} />
                     </div>
                     <h2 className={styles['success-title']}>CONGRATULATIONS!</h2>
-                    <p className={styles['success-subtitle']}>You've conquered another trail!</p>
+                    <p className={styles['success-subtitle']}>You&apos;ve conquered another trail!</p>
 
                     <div className={styles['trek-completion-info']}>
                         <div className={styles['trek-name']}>{lastCompletedTrek.tags?.name || lastCompletedTrek.tags?.name_en || `Trek #${lastCompletedTrek.id}`}</div>
@@ -362,7 +354,7 @@ export default function ProfilePage() {
             {/* Header */}
             <div className={styles['profile-header']}>
                 <div className={styles['avatar']} onClick={isEditing ? openAvatarEditor : undefined} style={{ position: 'relative', overflow: 'hidden', padding: 0, border: '4px solid #fff', cursor: isEditing ? 'pointer' : 'default' }}>
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt="Profile Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt="Profile Avatar" width={120} height={120} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     {isEditing && (
                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Camera size={24} color="#fff" />
@@ -492,8 +484,10 @@ export default function ProfilePage() {
 
             {/* Avatar Editor Modal */}
             <AvatarEditor
+                key={`${avatarSeed}-${showAvatarEditor}`}
                 isOpen={showAvatarEditor}
                 currentSeed={avatarSeed}
+                initialOptions={avatarOptions}
                 onClose={() => setShowAvatarEditor(false)}
                 onSave={saveNewAvatar}
             />

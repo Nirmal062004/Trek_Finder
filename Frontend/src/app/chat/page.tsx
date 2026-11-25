@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import React, { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
 import styles from '@/styles/ChatRoom.module.css';
 import wsService from '@/shared/services/websocket';
-import { Compass, MessageSquare, Users, LogOut, Search, Plus, Trash2, Paperclip, Smile, Send, Check, X, RefreshCw, Save, Copy, ChevronLeft } from 'lucide-react';
-import { getIconByKey, availableIconKeys, iconRegistry, Community } from '@/shared/services/communityData';
+import { MessageSquare, LogOut, Search, Plus, Paperclip, Smile, Send, Check, X, RefreshCw, Copy, ChevronLeft } from 'lucide-react';
+import { getIconByKey, availableIconKeys, Community } from '@/shared/services/communityData';
 import AvatarEditor from '@/components/AvatarEditor';
+import Image from 'next/image';
 
 interface Message {
     id: number;
@@ -29,23 +28,92 @@ interface Friend {
     unread?: number;
 }
 
-interface ChatRoomProps {
-    selectedTrek: any;
-    onClose: () => void;
-}
-
 const STORAGE_KEY_CUSTOM = 'trek_finder_custom_communities';
 const STORAGE_KEY_JOINED = 'trek_finder_joined_communities';
 const STORAGE_KEY_MESSAGES = 'trek_finder_chat_messages';
 const STORAGE_KEY_FRIENDS = 'trek_finder_friends';
+const STORAGE_EVENT = 'chat-storage-updated';
+const EMPTY_ARRAY: never[] = [];
+const storedArraySnapshots = new Map<string, { raw: string | null; value: unknown[] }>();
 
+function subscribeToStoredArrays(onChange: () => void): () => void {
+    window.addEventListener('storage', onChange);
+    window.addEventListener(STORAGE_EVENT, onChange);
+    return () => {
+        window.removeEventListener('storage', onChange);
+        window.removeEventListener(STORAGE_EVENT, onChange);
+    };
+}
 
-const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
+function useStoredArray<T>(key: string, isValidArray: (value: unknown) => value is T[]): [T[], React.Dispatch<React.SetStateAction<T[]>>] {
+    const getSnapshot = useCallback((): T[] => {
+        const raw = localStorage.getItem(key);
+        const cached = storedArraySnapshots.get(key);
+        if (cached?.raw === raw) return cached.value as T[];
+
+        let value: unknown = EMPTY_ARRAY;
+        try {
+            value = raw ? JSON.parse(raw) as unknown : EMPTY_ARRAY;
+        } catch (error) {
+            console.warn(`Could not parse stored data for ${key}`, error);
+        }
+        const parsed = isValidArray(value) ? value : EMPTY_ARRAY;
+        storedArraySnapshots.set(key, { raw, value: parsed });
+        return parsed;
+    }, [isValidArray, key]);
+
+    const values = useSyncExternalStore(subscribeToStoredArrays, getSnapshot, () => EMPTY_ARRAY as T[]);
+    const setValues = useCallback<React.Dispatch<React.SetStateAction<T[]>>>((update) => {
+        const previous = getSnapshot();
+        const next = typeof update === 'function' ? update(previous) : update;
+        localStorage.setItem(key, JSON.stringify(next));
+        window.dispatchEvent(new Event(STORAGE_EVENT));
+    }, [getSnapshot, key]);
+    return [values, setValues];
+}
+
+function isMessageArray(value: unknown): value is Message[] {
+    return Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null &&
+        'id' in item && 'user' in item && 'text' in item && 'timestamp' in item && 'isSystem' in item);
+}
+
+function isFriendArray(value: unknown): value is Friend[] {
+    return Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null &&
+        'id' in item && 'name' in item && 'status' in item && 'avatar' in item);
+}
+
+function isCommunityArray(value: unknown): value is Community[] {
+    return Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null &&
+        'id' in item && 'name' in item && 'iconKey' in item && 'members' in item);
+}
+
+function isStringArray(value: unknown): value is string[] {
+    return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function subscribeToUid(onChange: () => void): () => void {
+    const storedUid = localStorage.getItem('trek_finder_uid');
+    if (!storedUid) {
+        const generatedUid = Math.floor(100000 + Math.random() * 900000).toString();
+        localStorage.setItem('trek_finder_uid', generatedUid);
+    }
+    window.addEventListener('storage', onChange);
+    return () => window.removeEventListener('storage', onChange);
+}
+
+const ChatRoom: React.FC = () => {
     const { user } = useAuth();
-    const [userName, setUserName] = useState('Anonymous');
-    const [userUID, setUserUID] = useState('');
-    const [avatarSeed, setAvatarSeed] = useState('');
-    const [isNameSet, setIsNameSet] = useState(false);
+    const userName = user?.name || user?.email?.split('@')[0] || 'Anonymous';
+    const userUID = useSyncExternalStore(
+        subscribeToUid,
+        () => localStorage.getItem('trek_finder_uid') || '',
+        () => ''
+    );
+    const avatarOwner = user?.id || userUID || 'anon';
+    const avatarKey = `trek_finder_avatar_seed_${avatarOwner}`;
+    const getAvatarSeed = useCallback(() => localStorage.getItem(avatarKey) || userName, [avatarKey, userName]);
+    const avatarSeed = useSyncExternalStore(subscribeToStoredArrays, getAvatarSeed, () => userName);
+    const isNameSet = Boolean(user);
 
     // UI States
     const [viewMode, setViewMode] = useState<'chats' | 'communities'>('chats');
@@ -53,74 +121,22 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
     const [showAddFriend, setShowAddFriend] = useState(false);
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
     const [tempAvatarSeed, setTempAvatarSeed] = useState('');
+    const [avatarOptions, setAvatarOptions] = useState<string[]>([]);
     const [friendUidInput, setFriendUidInput] = useState('');
 
     // Data States
-    const [messages, setMessages] = useState<Message[]>([]);
+    const messageStorageKey = `${STORAGE_KEY_MESSAGES}_${activeChatId || 'general'}`;
+    const [messages, setMessages] = useStoredArray(messageStorageKey, isMessageArray);
     const [inputValue, setInputValue] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [myFriends, setMyFriends] = useState<Friend[]>([]);
-    const [customCommunities, setCustomCommunities] = useState<Community[]>([]);
-    const [joinedCommunityIds, setJoinedCommunityIds] = useState<string[]>([]);
+    const [myFriends, setMyFriends] = useStoredArray(STORAGE_KEY_FRIENDS, isFriendArray);
+    const [customCommunities, setCustomCommunities] = useStoredArray(STORAGE_KEY_CUSTOM, isCommunityArray);
+    const [joinedCommunityIds, setJoinedCommunityIds] = useStoredArray(STORAGE_KEY_JOINED, isStringArray);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [newCommunity, setNewCommunity] = useState({ name: '', iconKey: availableIconKeys[0], description: '' });
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const MAX_CUSTOM_COMMUNITIES = 3;
-
-    // Initialization
-    useEffect(() => {
-        if (user) {
-            const name = user.name || user.email?.split('@')[0] || 'Anonymous';
-            setUserName(name);
-
-            // Generate or retrieve persistent UID
-            let uid = localStorage.getItem('trek_finder_uid');
-            if (!uid) {
-                uid = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit ID
-                localStorage.setItem('trek_finder_uid', uid);
-            }
-            setUserUID(uid);
-
-            // Load or init Avatar Seed (scoped per-user if possible)
-            const storageOwner = (user as any)?.id || uid;
-            const storageKey = `trek_finder_avatar_seed_${storageOwner}`;
-            let seed = localStorage.getItem(storageKey);
-            if (!seed) {
-                seed = name; // Default to username
-                localStorage.setItem(storageKey, seed);
-            }
-            setAvatarSeed(seed);
-
-            setIsNameSet(true);
-        }
-    }, [user]);
-
-    useEffect(() => {
-        // Load Friends
-        const savedFriends = localStorage.getItem(STORAGE_KEY_FRIENDS);
-        if (savedFriends) {
-            try { setMyFriends(JSON.parse(savedFriends)); } catch (e) { setMyFriends([]); }
-        } else {
-            setMyFriends([]);
-        }
-
-        // Load Communities... (Same as before)
-        const savedCustom = localStorage.getItem(STORAGE_KEY_CUSTOM);
-        if (savedCustom) try { setCustomCommunities(JSON.parse(savedCustom)); } catch (e) { }
-
-        const savedJoined = localStorage.getItem(STORAGE_KEY_JOINED);
-        if (savedJoined) try { setJoinedCommunityIds(JSON.parse(savedJoined)); } catch (e) { }
-
-    }, []);
-
-    // Persist Friends
-    useEffect(() => {
-        localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(myFriends));
-    }, [myFriends]);
-
-    useEffect(() => { localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customCommunities)); }, [customCommunities]);
-    useEffect(() => { localStorage.setItem(STORAGE_KEY_JOINED, JSON.stringify(joinedCommunityIds)); }, [joinedCommunityIds]);
 
     useEffect(() => {
         if (isNameSet) {
@@ -129,23 +145,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
             wsService.onMessage(handleMessage);
             return () => { wsService.disconnect(); };
         }
-    }, [isNameSet, userName]);
-
-    useEffect(() => {
-        if (activeChatId) {
-            const savedMessages = localStorage.getItem(`${STORAGE_KEY_MESSAGES}_${activeChatId}`);
-            if (savedMessages) {
-                try { setMessages(JSON.parse(savedMessages)); } catch (e) { setMessages([]); }
-            } else { setMessages([]); }
-        }
-    }, [activeChatId]);
-
-    useEffect(() => {
-        if (activeChatId && messages.length > 0) {
-            const recent = messages.slice(-50);
-            localStorage.setItem(`${STORAGE_KEY_MESSAGES}_${activeChatId}`, JSON.stringify(recent));
-        }
-    }, [messages, activeChatId]);
+    }, [isNameSet, userName, setMessages]);
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -209,39 +209,22 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
         setViewMode('communities');
     };
 
-    const handleDeleteCommunity = (e: React.MouseEvent, id: string) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this community?')) { const updatedCustom = customCommunities.filter((c) => c.id !== id); setCustomCommunities(updatedCustom); setJoinedCommunityIds(prev => prev.filter(jid => jid !== id)); if (activeChatId === id) setActiveChatId(null); } };
-
     const handleJoinCommunity = (e: React.MouseEvent, id: string) => { e.stopPropagation(); setJoinedCommunityIds(prev => { if (prev.includes(id)) return prev; return [...prev, id]; }); setActiveChatId(id); setViewMode('communities'); };
     const handleLeaveCommunity = (e: React.MouseEvent, id: string) => { e.stopPropagation(); if (confirm('Are you sure you want to leave this community?')) { setJoinedCommunityIds(prev => prev.filter(jid => jid !== id)); if (activeChatId === id) setActiveChatId(null); } };
     const isJoined = (id: string) => joinedCommunityIds.includes(id);
 
-    const [avatarOptions, setAvatarOptions] = useState<string[]>([]);
-
     // Avatar Management
     const openAvatarEditor = () => {
         setTempAvatarSeed(avatarSeed);
-        generateAvatarOptions(avatarSeed);
+        setAvatarOptions([avatarSeed, ...Array.from({ length: 9 }, () => Math.random().toString(36).substring(7))]);
         setShowAvatarEditor(true);
     };
 
-    const generateAvatarOptions = (currentSeed: string) => {
-        const options = [currentSeed]; // Keep current as first option
-        for (let i = 0; i < 9; i++) {
-            options.push(Math.random().toString(36).substring(7));
-        }
-        setAvatarOptions(options);
-    };
-
-    const refreshOptions = () => {
-        generateAvatarOptions(tempAvatarSeed); // keep selected one
-    };
-
     const saveAvatar = () => {
-        setAvatarSeed(tempAvatarSeed);
-        const storageOwner = (user as any)?.id || userUID || 'anon';
+        const storageOwner = user?.id || userUID || 'anon';
         const storageKey = `trek_finder_avatar_seed_${storageOwner}`;
         localStorage.setItem(storageKey, tempAvatarSeed);
-        window.dispatchEvent(new Event('avatar-updated')); // Notify Navigation
+        window.dispatchEvent(new Event('avatar-updated'));
         setShowAvatarEditor(false);
     };
 
@@ -286,7 +269,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                             onClick={openAvatarEditor}
                             title="Click to edit avatar"
                         >
-                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt="My Avatar" style={{ width: '100%', height: '100%' }} />
+                            <Image src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt="My Avatar" width={40} height={40} unoptimized style={{ width: '100%', height: '100%' }} />
                             <div style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(0,0,0,0.6)', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} className="avatar-overlay">
                                 <RefreshCw size={14} color="#fff" />
                             </div>
@@ -383,7 +366,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                                     key={friend.id}
                                     onClick={() => setActiveChatId(friend.id)}
                                     className={`${styles['list-item']} ${activeChatId === friend.id ? styles['active'] : ''}`}>
-                                    <img src={friend.avatar} className={styles['item-avatar']} style={{ background: '#fff' }} />
+                                    <Image src={friend.avatar} alt={`${friend.name} avatar`} width={48} height={48} unoptimized className={styles['item-avatar']} style={{ background: '#fff' }} />
                                     <div className={styles['item-info']}>
                                         <div className={styles['item-top']}>
                                             <span style={{ color: '#fff', fontWeight: 500 }}>{friend.name}</span>
@@ -465,7 +448,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                                     <ChevronLeft size={24} />
                                 </button>
                                 <div className={styles['header-avatar']}>
-                                    {activeDetails.type === 'community' ? getIconByKey((activeDetails.data as Community).iconKey) : <img src={(activeDetails.data as Friend).avatar} style={{ width: '100%' }} />}
+                                    {activeDetails.type === 'community' ? getIconByKey((activeDetails.data as Community).iconKey) : <Image src={(activeDetails.data as Friend).avatar} alt={`${activeDetails.data.name} avatar`} width={40} height={40} unoptimized style={{ width: '100%' }} />}
                                 </div>
                                 <div className={styles['header-info']}>
                                     <h3>{activeDetails.data.name}</h3>
@@ -540,8 +523,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
 
             {/* Modals */}
             <AvatarEditor
+                key={`${avatarSeed}-${showAvatarEditor}`}
                 isOpen={showAvatarEditor}
                 currentSeed={avatarSeed}
+                initialOptions={avatarOptions}
                 onClose={() => setShowAvatarEditor(false)}
                 onSave={saveAvatar}
             />
@@ -556,7 +541,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
                             </div>
                             <form onSubmit={handleAddFriend}>
                                 <div style={{ marginBottom: 20 }}>
-                                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', marginBottom: 8, fontSize: '0.9rem' }}>Friend's 6-Digit UID</label>
+                                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', marginBottom: 8, fontSize: '0.9rem' }}>Friend&apos;s 6-Digit UID</label>
                                     <input
                                         value={friendUidInput}
                                         onChange={(e) => setFriendUidInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -623,7 +608,5 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ selectedTrek, onClose }) => {
 
 
 export default function ChatPage() {
-    const router = useRouter();
-    const handleClose = () => { router.push('/'); };
-    return <ChatRoom selectedTrek={null} onClose={handleClose} />;
+    return <ChatRoom />;
 }

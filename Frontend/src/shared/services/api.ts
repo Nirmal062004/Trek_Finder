@@ -1,5 +1,70 @@
 import { supabase } from './supabaseClient';
 
+export interface ProfileRecord {
+	id: string;
+	name?: string | null;
+	email?: string | null;
+	role?: string | null;
+	created_at?: string | null;
+	[key: string]: unknown;
+}
+
+export interface TrekRecord {
+	id: string;
+	title?: string | null;
+	name?: string | null;
+	region?: string | null;
+	state?: string | null;
+	location?: string | null;
+	level?: string | null;
+	days?: string | number | null;
+	estimated_time?: string | number | null;
+	km?: string | number | null;
+	season?: string | null;
+	description?: string | null;
+	distance?: number | string | null;
+	difficulty?: number | string | null;
+	duration?: number | string | null;
+	length?: number | string | null;
+	length_km?: number | null;
+	rating?: number | null;
+	avg_rating?: number | null;
+	created_at?: string | null;
+	tags?: Record<string, string> | string[] | null;
+	[key: string]: unknown;
+}
+
+export interface CommunityRecord {
+	id: string;
+	name?: string | null;
+	description?: string | null;
+	topic?: string | null;
+	type?: string | null;
+	members?: number | null;
+	active?: number | null;
+	icon_key?: string | null;
+	created_at?: string | null;
+	[key: string]: unknown;
+}
+
+export interface StoryRecord {
+	id: string;
+	title: string;
+	state?: string | null;
+	district?: string | null;
+	trek_name?: string | null;
+	community?: string | null;
+	community_name?: string | null;
+	description?: string | null;
+	media_url?: string | null;
+	media_type?: string | null;
+	user_name?: string | null;
+	user_email?: string | null;
+	storage_path?: string | null;
+	created_at?: string | null;
+	[key: string]: unknown;
+}
+
 // Auth API - using Supabase directly
 export const authAPI = {
 	register: async (data: { email: string; password: string; name: string }) => {
@@ -63,7 +128,7 @@ export const authAPI = {
 				localStorage.removeItem('isAuthenticated');
 				localStorage.removeItem('userName');
 				localStorage.removeItem('isAdmin');
-				try { await supabase.auth.signOut(); } catch (_) { }
+				try { await supabase.auth.signOut(); } catch { }
 				throw error;
 			}
 			return data;
@@ -150,13 +215,13 @@ export const backendAPI = {
 	},
 
 	// Real Database Access
-	getUsers: async () => {
+	getUsers: async (): Promise<ProfileRecord[]> => {
 		const { data, error } = await supabase.from('profiles').select('*');
 		if (error) {
 			console.warn('Fetch profiles failed:', error.message);
 			return [];
 		}
-		return data || [];
+		return (data || []) as ProfileRecord[];
 	},
 
 	deleteUser: async (id: string) => {
@@ -164,16 +229,16 @@ export const backendAPI = {
 		if (error) throw error;
 	},
 
-	createUser: async (profile: any) => {
+	createUser: async (profile: Record<string, unknown>): Promise<ProfileRecord> => {
 		const { data, error } = await supabase.from('profiles').insert(profile).select().single();
 		if (error) throw error;
-		return data;
+		return data as ProfileRecord;
 	},
 
-	updateUser: async (id: string, updates: any) => {
+	updateUser: async (id: string, updates: Record<string, unknown>): Promise<ProfileRecord> => {
 		const { data, error } = await supabase.from('profiles').update(updates).eq('id', id).select().single();
 		if (error) throw error;
-		return data;
+		return data as ProfileRecord;
 	},
 
 	getUserProfile: async (id: string) => {
@@ -185,25 +250,25 @@ export const backendAPI = {
 		return data;
 	},
 
-	getTreks: async () => {
+	getTreks: async (): Promise<TrekRecord[]> => {
 		const { data, error } = await supabase.from('treks').select('*').order('created_at', { ascending: false });
 		if (error) {
 			console.warn('Fetch treks failed:', error.message);
 			return [];
 		}
-		return data || [];
+		return (data || []) as TrekRecord[];
 	},
 
-	createTrek: async (trek: any) => {
+	createTrek: async (trek: Record<string, unknown>): Promise<TrekRecord> => {
 		const { data, error } = await supabase.from('treks').insert(trek).select().single();
 		if (error) throw error;
-		return data;
+		return data as TrekRecord;
 	},
 
-	updateTrek: async (id: string, updates: any) => {
+	updateTrek: async (id: string, updates: Record<string, unknown>): Promise<TrekRecord> => {
 		const { data, error } = await supabase.from('treks').update(updates).eq('id', id).select().single();
 		if (error) throw error;
-		return data;
+		return data as TrekRecord;
 	},
 
 	deleteTrek: async (id: string) => {
@@ -211,38 +276,38 @@ export const backendAPI = {
 		if (error) throw error;
 	},
 
-	getCommunities: async () => {
+	getCommunities: async (): Promise<CommunityRecord[]> => {
 		const { data, error } = await supabase.from('communities').select('*');
 		if (error) {
 			console.warn('Fetch communities failed:', error.message);
 			return [];
 		}
-		return data || [];
+		return (data || []) as CommunityRecord[];
 	},
 
-	createCommunity: async (comm: any) => {
+	createCommunity: async (comm: Record<string, unknown>): Promise<CommunityRecord> => {
 		const { data, error } = await supabase.from('communities').insert(comm).select().single();
 		if (error) throw error;
-		return data;
+		return data as CommunityRecord;
 	},
 
-	updateCommunity: async (id: string, updates: any) => {
+	updateCommunity: async (id: string, updates: Record<string, unknown>): Promise<CommunityRecord> => {
 		const { data, error } = await supabase.from('communities').update(updates).eq('id', id).select().single();
 		if (error) throw error;
-		return data;
+		return data as CommunityRecord;
 	},
 
 	deleteCommunity: async (id: string) => {
 		const { error } = await supabase.from('communities').delete().eq('id', id);
 		if (error) throw error;
 	},
-	getStories: async () => {
+	getStories: async (): Promise<StoryRecord[]> => {
 		const { data, error } = await supabase.from('stories').select('*').order('created_at', { ascending: false });
 		if (error) {
 			console.warn('Fetch stories failed:', error.message);
 			return [];
 		}
-		return data || [];
+		return (data || []) as StoryRecord[];
 	},
 	deleteStory: async (id: string) => {
 		const { error } = await supabase.from('stories').delete().eq('id', id);

@@ -54,9 +54,9 @@ export default function SignupPage() {
                 await login();
                 router.push('/');
             }
-        } catch (err: any) {
-            console.error('Signup error:', err);
-            setError(err?.message || 'Signup failed. Please try again.');
+        } catch (error) {
+            console.error('Signup error:', error);
+            setError(error instanceof Error ? error.message : 'Signup failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -67,7 +67,7 @@ export default function SignupPage() {
     return (
         <div className={styles.container}>
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 100 }}>
-                <Navigation activeNav={null} onNavChange={() => { }} locked={true} />
+                <Navigation />
             </div>
 
             <div className={styles.visualSide}>
@@ -92,7 +92,7 @@ export default function SignupPage() {
                         Create your profile, track your treks, and connect with fellow adventurers in your region.
                     </p>
                     <div className={styles.visualQuote}>
-                        "In every walk with nature one receives far more than he seeks."
+                        &quot;In every walk with nature one receives far more than he seeks.&quot;
                     </div>
                 </div>
             </div>

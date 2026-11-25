@@ -7,26 +7,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "check-assets": "node ./scripts/check-assets.js",
-    "list-client": "node ./scripts/list-client-components.js"
+    "lint": "eslint .",
+    "check-assets": "node ./scripts/check-assets.mjs",
+    "list-client": "node ./scripts/list-client-components.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.50.0",
-    "axios": "^1.6.2",
-    "framer-motion": "^12.38.0",
-    "lucide-react": "^0.564.0",
-    "maplibre-gl": "^5.18.0",
-    "next": "^16.1.6",
-    "react": "^18.2.0",
-    "react-dom": "^18.3.1"
+    "@supabase/supabase-js": "^2.119.2",
+    "axios": "^1.21.1",
+    "framer-motion": "^14.14.0",
+    "lucide-react": "^1.80.0",
+    "maplibre-gl": "^6.19.0",
+    "next": "^16.4.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-icons": "^5.7.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^16.1.6",
-    "typescript": "^5.3.0"
+    "@types/node": "^26.6.10",
+    "@types/react": "^19.3.2",
+    "@types/react-dom": "^19.3.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.6",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   }
 }

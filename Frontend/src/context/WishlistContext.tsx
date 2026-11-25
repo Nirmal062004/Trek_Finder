@@ -1,10 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useMemo, useSyncExternalStore } from 'react';
 
 export interface TrekSummary {
   id: number | string;
-  tags?: Record<string, any>;
+  tags?: Record<string, string>;
   coords?: [number, number][];
   distance?: number;
   difficulty?: string;
@@ -25,40 +25,64 @@ interface WishlistContextShape {
 }
 
 const STORAGE_KEY = 'trek_finder_saved_treks';
+const EMPTY_TREKS: TrekSummary[] = [];
+const CHANGE_EVENT = 'wishlist-updated';
+
+let cachedRaw: string | null | undefined;
+let cachedTreks: TrekSummary[] = EMPTY_TREKS;
+
+function isTrekSummary(value: unknown): value is TrekSummary {
+  return typeof value === 'object' && value !== null && 'id' in value &&
+    (typeof value.id === 'number' || typeof value.id === 'string');
+}
+
+function getSavedTreksSnapshot(): TrekSummary[] {
+  if (typeof window === 'undefined') return EMPTY_TREKS;
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw === cachedRaw) return cachedTreks;
+
+  cachedRaw = raw;
+  try {
+    const parsed: unknown = raw ? JSON.parse(raw) : EMPTY_TREKS;
+    cachedTreks = Array.isArray(parsed) ? parsed.filter(isTrekSummary) : EMPTY_TREKS;
+  } catch (error) {
+    console.error('Failed to load wishlist', error);
+    cachedTreks = EMPTY_TREKS;
+  }
+  return cachedTreks;
+}
+
+function subscribeToWishlist(onStoreChange: () => void): () => void {
+  window.addEventListener('storage', onStoreChange);
+  window.addEventListener(CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener('storage', onStoreChange);
+    window.removeEventListener(CHANGE_EVENT, onStoreChange);
+  };
+}
+
+function updateSavedTreks(update: (treks: TrekSummary[]) => TrekSummary[]): void {
+  const updatedTreks = update(getSavedTreksSnapshot());
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTreks));
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
 
 const WishlistContext = createContext<WishlistContextShape | null>(null);
 
 export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [savedTreks, setSavedTreks] = useState<TrekSummary[]>([]);
+  const savedTreks = useSyncExternalStore(subscribeToWishlist, getSavedTreksSnapshot, () => EMPTY_TREKS);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setSavedTreks(JSON.parse(raw));
-    } catch (e) {
-      console.error('Failed to load wishlist', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedTreks));
-    } catch (e) {
-      console.error('Failed to persist wishlist', e);
-    }
-  }, [savedTreks]);
-
-  const savedIds = new Set(savedTreks.map((t) => t.id));
+  const savedIds = useMemo(() => new Set(savedTreks.map((trek) => trek.id)), [savedTreks]);
 
   const addTrek = (t: TrekSummary) => {
-    setSavedTreks((prev) => {
-      if (prev.find((p) => p.id === t.id)) return prev;
-      return [...prev, { ...t, isSaved: true }];
+    updateSavedTreks((previous) => {
+      if (previous.some((savedTrek) => savedTrek.id === t.id)) return previous;
+      return [...previous, { ...t, isSaved: true }];
     });
   };
 
   const removeTrek = (id: number | string) => {
-    setSavedTreks((prev) => prev.filter((p) => p.id !== id));
+    updateSavedTreks((previous) => previous.filter((savedTrek) => savedTrek.id !== id));
   };
 
   const toggleTrek = (t: TrekSummary) => {

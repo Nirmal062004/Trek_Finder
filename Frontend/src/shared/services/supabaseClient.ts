@@ -11,7 +11,7 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 
 declare global {
 	// Allow a single shared client during HMR/dev reloads
-	// eslint-disable-next-line no-var
+	 
 	var __supabase_client__: SupabaseClient | undefined;
 }
 
@@ -19,7 +19,6 @@ const globalRef = globalThis as unknown as { __supabase_client__?: SupabaseClien
 
 export const supabase = globalRef.__supabase_client__ ??= createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 	auth: {
-		autocompleteSignIn: true,
 		persistSession: true,
 		autoRefreshToken: true,
 		detectSessionInUrl: true,

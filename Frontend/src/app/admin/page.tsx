@@ -1,32 +1,58 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { authAPI, backendAPI } from '@/shared/services/api';
+import { backendAPI, type CommunityRecord, type ProfileRecord, type StoryRecord, type TrekRecord } from '@/shared/services/api';
 import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Users, Map, MessageSquare, Star, BarChart2, Search, Plus, Trash2, Edit, X, ArrowLeft, Menu, Image as ImageIcon } from 'lucide-react';
+import { Users, Map, MessageSquare, Plus, Trash2, Edit, X, ArrowLeft, Menu, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image';
 import styles from '@/styles/Admin.module.css';
+
+type AdminTab = 'users' | 'treks' | 'communities' | 'stories';
+type AdminRow = { id: string;[key: string]: unknown };
+type RealtimePayload = {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    new: { id: string };
+    old: { id: string };
+};
+
+function applyRealtimeUpdate<T extends { id: string }>(
+    previous: T[],
+    eventType: RealtimePayload['eventType'],
+    newRecord: T,
+    oldRecord: { id: string }
+): T[] {
+    if (eventType === 'INSERT') return [newRecord, ...previous];
+    if (eventType === 'DELETE') return previous.filter((item) => item.id !== oldRecord.id);
+    return previous.map((item) => item.id === newRecord.id ? newRecord : item);
+}
+
+function renderCell(value: unknown): React.ReactNode {
+    if (typeof value === 'string' || typeof value === 'number') return value;
+    if (React.isValidElement(value)) return value;
+    return null;
+}
+
+function getFormValue(value: unknown): string | number {
+    return typeof value === 'string' || typeof value === 'number' ? value : '';
+}
 
 const AdminPage: React.FC = () => {
     const router = useRouter();
-    const { user, isAdmin, logout } = useAuth();
+    const { user, isAdmin } = useAuth();
 
     // State
-    const [activeTab, setActiveTab] = useState<'users' | 'treks' | 'communities' | 'stories'>('users');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<AdminTab>('users');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    const [users, setUsers] = useState<any[]>([]);
-    const [treks, setTreks] = useState<any[]>([]);
-    const [communities, setCommunities] = useState<any[]>([]);
-    const [stories, setStories] = useState<any[]>([]);
+    const [users, setUsers] = useState<ProfileRecord[]>([]);
+    const [treks, setTreks] = useState<TrekRecord[]>([]);
+    const [communities, setCommunities] = useState<CommunityRecord[]>([]);
+    const [stories, setStories] = useState<StoryRecord[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-
     // Form State
-    const [newItem, setNewItem] = useState<any>({});
+    const [newItem, setNewItem] = useState<Record<string, unknown>>({});
     const [editingId, setEditingId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -36,28 +62,21 @@ const AdminPage: React.FC = () => {
         }
 
         // Helper for Realtime Updates
-        const handleRtUpdate = (type: string, payload: any) => {
-            const { eventType, new: newRecord, old: oldRecord } = payload;
-            const updateFn = (prev: any[]) => {
-                if (eventType === 'INSERT') return [newRecord, ...prev];
-                if (eventType === 'DELETE') return prev.filter(i => i.id !== oldRecord.id);
-                if (eventType === 'UPDATE') return prev.map(i => i.id === newRecord.id ? newRecord : i);
-                return prev;
-            };
-            if (type === 'profiles') setUsers(updateFn);
-            if (type === 'treks') setTreks(updateFn);
-            if (type === 'communities') setCommunities(updateFn);
-            if (type === 'stories') setStories(updateFn);
+        const handleRtUpdate = (type: string, payload: unknown) => {
+            const { eventType, new: newRecord, old: oldRecord } = payload as RealtimePayload;
+            if (type === 'profiles') setUsers((previous) => applyRealtimeUpdate(previous, eventType, newRecord as ProfileRecord, oldRecord));
+            if (type === 'treks') setTreks((previous) => applyRealtimeUpdate(previous, eventType, newRecord as TrekRecord, oldRecord));
+            if (type === 'communities') setCommunities((previous) => applyRealtimeUpdate(previous, eventType, newRecord as CommunityRecord, oldRecord));
+            if (type === 'stories') setStories((previous) => applyRealtimeUpdate(previous, eventType, newRecord as StoryRecord, oldRecord));
         };
 
         const loadData = async () => {
-            setIsLoading(true);
             try {
                 const [u, t, c, s] = await Promise.all([
-                    (backendAPI as any).getUsers?.() || [],
-                    (backendAPI as any).getTreks?.() || [],
-                    (backendAPI as any).getCommunities?.() || [],
-                    (backendAPI as any).getStories?.() || []
+                    backendAPI.getUsers(),
+                    backendAPI.getTreks(),
+                    backendAPI.getCommunities(),
+                    backendAPI.getStories()
                 ]);
                 setUsers(u);
                 setTreks(t);
@@ -65,8 +84,6 @@ const AdminPage: React.FC = () => {
                 setStories(s);
             } catch (e) {
                 console.error("Failed to load admin data", e);
-            } finally {
-                setIsLoading(false);
             }
         };
         loadData();
@@ -82,36 +99,36 @@ const AdminPage: React.FC = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user, isAdmin]);
-
-    // Clear selection on tab change
-    useEffect(() => {
-        setSelectedIds([]);
-    }, [activeTab]);
+    }, [user, isAdmin, router]);
 
     if (!user || !isAdmin) return null;
 
     // Handlers
-    const deleteItem = async (id: string, type: string) => {
+    const selectTab = (tab: AdminTab) => {
+        setActiveTab(tab);
+        setSelectedIds([]);
+    };
+
+    const deleteItem = async (id: string, type: 'user' | 'trek' | 'community' | 'review' | 'story') => {
         try {
-            if (type === 'user') await backendAPI.deleteUser!(id);
-            if (type === 'trek') await backendAPI.deleteTrek!(id);
-            if (type === 'community') await (backendAPI as any).deleteCommunity!(id);
-            if (type === 'review') await (backendAPI as any).deleteReview!(id);
-            if (type === 'story') await (backendAPI as any).deleteStory!(id);
+            if (type === 'user') await backendAPI.deleteUser(id);
+            if (type === 'trek') await backendAPI.deleteTrek(id);
+            if (type === 'community') await backendAPI.deleteCommunity(id);
+            if (type === 'review') await backendAPI.deleteReview(id);
+            if (type === 'story') await backendAPI.deleteStory(id);
 
             // Refresh local state
             if (type === 'user') setUsers(prev => prev.filter(u => u.id !== id));
             if (type === 'trek') setTreks(prev => prev.filter(t => t.id !== id));
             if (type === 'community') setCommunities(prev => prev.filter(c => c.id !== id));
             if (type === 'story') setStories(prev => prev.filter(s => s.id !== id));
-        } catch (e: any) {
-            console.error("Delete failed", e);
-            alert(`Failed to delete ${type}: ${e.message}`);
+        } catch (error) {
+            console.error("Delete failed", error);
+            alert(`Failed to delete ${type}: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
-    const handleDelete = (id: string, type: string) => {
+    const handleDelete = (id: string, type: 'user' | 'trek' | 'community' | 'story') => {
         if (type === 'user') {
             const userToDelete = users.find(u => u.id === id);
             // Check if user is an admin and if they are the last one
@@ -134,25 +151,19 @@ const AdminPage: React.FC = () => {
         const type = activeTab.slice(0, -1); // user, trek, community, review, story (rough)
         if (!confirm(`Are you sure you want to delete ${count} selected ${type}s?`)) return;
 
-        setIsLoading(true);
         try {
             for (const id of selectedIds) {
                 // Determine actual type for deleteItem helper
-                let actualType = activeTab.slice(0, -1);
-                if (activeTab === 'stories') actualType = 'story';
-                if (activeTab === 'communities') actualType = 'community';
-
+                const actualType = activeTab === 'stories' ? 'story' : activeTab === 'communities' ? 'community' : activeTab.slice(0, -1) as 'user' | 'trek';
                 await deleteItem(id, actualType);
             }
             setSelectedIds([]);
-        } catch (e: any) {
-            console.error("Bulk delete failed", e);
-        } finally {
-            setIsLoading(false);
+        } catch (error) {
+            console.error("Bulk delete failed", error);
         }
     };
 
-    const toggleSelectAll = (data: any[]) => {
+    const toggleSelectAll = (data: AdminRow[]) => {
         if (selectedIds.length === data.length) {
             setSelectedIds([]);
         } else {
@@ -166,7 +177,7 @@ const AdminPage: React.FC = () => {
         );
     };
 
-    const handleEdit = (row: any) => {
+    const handleEdit = (row: AdminRow) => {
         setNewItem(row);
         setEditingId(row.id);
         setIsAddModalOpen(true);
@@ -176,36 +187,35 @@ const AdminPage: React.FC = () => {
         if (Object.keys(newItem).length === 0) return;
 
         try {
-            const { id, created_at, ...updates } = newItem; // Clean payload
-            let res: any = null;
+            const updates = Object.fromEntries(Object.entries(newItem).filter(([key]) => key !== 'id' && key !== 'created_at'));
 
             if (activeTab === 'users') {
                 if (editingId) {
-                    res = await backendAPI.updateUser!(editingId, updates);
+                    const res = await backendAPI.updateUser(editingId, updates);
                     // Realtime will update list, or we update locally:
                     if (res) setUsers(prev => prev.map(u => u.id === editingId ? res : u));
                 } else {
                     const profile = { role: 'user', status: 'Active', joined: new Date().toISOString(), ...newItem };
-                    res = await backendAPI.createUser!(profile);
-                    if (res) setUsers([res, ...users]);
+                    const res = await backendAPI.createUser(profile);
+                    setUsers((previous) => [res, ...previous]);
                 }
             } else if (activeTab === 'treks') {
                 if (editingId) {
-                    res = await backendAPI.updateTrek!(editingId, updates);
+                    const res = await backendAPI.updateTrek(editingId, updates);
                     if (res) setTreks(prev => prev.map(t => t.id === editingId ? res : t));
                 } else {
                     const trek = { rating: 0, created_at: new Date().toISOString(), ...newItem };
-                    res = await backendAPI.createTrek!(trek);
-                    if (res) setTreks([res, ...treks]);
+                    const res = await backendAPI.createTrek(trek);
+                    setTreks((previous) => [res, ...previous]);
                 }
             } else if (activeTab === 'communities') {
                 if (editingId) {
-                    res = await backendAPI.updateCommunity!(editingId, updates);
+                    const res = await backendAPI.updateCommunity(editingId, updates);
                     if (res) setCommunities(prev => prev.map(c => c.id === editingId ? res : c));
                 } else {
                     const comm = { members: 1, active: 1, created_at: new Date().toISOString(), ...newItem };
-                    res = await backendAPI.createCommunity!(comm);
-                    if (res) setCommunities([...communities, res]);
+                    const res = await backendAPI.createCommunity(comm);
+                    setCommunities((previous) => [...previous, res]);
                 }
             }
             // Reviews edit logic omitted/not requested, can extend later.
@@ -213,9 +223,9 @@ const AdminPage: React.FC = () => {
             setIsAddModalOpen(false);
             setNewItem({});
             setEditingId(null);
-        } catch (e: any) {
-            console.error("Save failed", e);
-            alert(`Failed to save item: ${e.message}`);
+        } catch (error) {
+            console.error("Save failed", error);
+            alert(`Failed to save item: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
@@ -227,25 +237,25 @@ const AdminPage: React.FC = () => {
             </div>
             <nav className={styles.nav}>
                 <button
-                    onClick={() => setActiveTab('users')}
+                    onClick={() => selectTab('users')}
                     className={`${styles.navItem} ${activeTab === 'users' ? styles.active : ''}`}
                 >
                     <Users size={20} /> Users Database
                 </button>
                 <button
-                    onClick={() => setActiveTab('treks')}
+                    onClick={() => selectTab('treks')}
                     className={`${styles.navItem} ${activeTab === 'treks' ? styles.active : ''}`}
                 >
                     <Map size={20} /> Trek Management
                 </button>
                 <button
-                    onClick={() => setActiveTab('communities')}
+                    onClick={() => selectTab('communities')}
                     className={`${styles.navItem} ${activeTab === 'communities' ? styles.active : ''}`}
                 >
                     <MessageSquare size={20} /> Community Groups
                 </button>
                 <button
-                    onClick={() => setActiveTab('stories')}
+                    onClick={() => selectTab('stories')}
                     className={`${styles.navItem} ${activeTab === 'stories' ? styles.active : ''}`}
                 >
                     <ImageIcon size={20} /> Stories & Media
@@ -296,8 +306,8 @@ const AdminPage: React.FC = () => {
 
     const renderTable = () => {
         let columns: string[] = [];
-        let data: any[] = [];
-        let type = '';
+        let data: AdminRow[] = [];
+        let type: 'user' | 'trek' | 'community' | 'story' = 'user';
 
         if (activeTab === 'users') {
             columns = ['Name', 'Email', 'Role', 'Status', 'Joined'];
@@ -322,9 +332,9 @@ const AdminPage: React.FC = () => {
             columns = ['Title', 'Media', 'User', 'State', 'District', 'Date'];
             data = stories.map(s => ({
                 ...s,
-                media: s.media_url ? <img src={s.media_url} style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} /> : 'No image',
+                media: s.media_url ? <Image src={s.media_url} alt={s.title} width={40} height={40} unoptimized style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} /> : 'No image',
                 user: s.user_name || s.user_email || 'Anon',
-                date: new Date(s.created_at).toLocaleDateString()
+                date: s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A'
             }));
             type = 'story';
         }
@@ -364,9 +374,9 @@ const AdminPage: React.FC = () => {
                                         let color = '#10b981';
                                         if (val === 'Moderate') color = '#f59e0b';
                                         if (val === 'Hard' || val === 'Expert') color = '#ef4444';
-                                        return <td key={col} style={{ color, fontWeight: 'bold' }}>{val}</td>;
+                                        return <td key={col} style={{ color, fontWeight: 'bold' }}>{renderCell(val)}</td>;
                                     }
-                                    return <td key={col}>{row[key] || val}</td>
+                                    return <td key={col}>{renderCell(row[key] || val)}</td>
                                 })}
                                 <td style={{ textAlign: 'right' }}>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -422,7 +432,7 @@ const AdminPage: React.FC = () => {
                             {f.type === 'select' ? (
                                 <select
                                     className={styles.select}
-                                    value={newItem[f.key] || ''}
+                                    value={getFormValue(newItem[f.key])}
                                     onChange={e => setNewItem({ ...newItem, [f.key]: e.target.value })}
                                 >
                                     <option value="">Select {f.label}</option>
@@ -432,7 +442,7 @@ const AdminPage: React.FC = () => {
                                 <input
                                     className={styles.input}
                                     type={f.type || 'text'}
-                                    value={newItem[f.key] || ''}
+                                    value={getFormValue(newItem[f.key])}
                                     placeholder={`Enter ${f.label}`}
                                     onChange={e => setNewItem({ ...newItem, [f.key]: e.target.value })}
                                 />

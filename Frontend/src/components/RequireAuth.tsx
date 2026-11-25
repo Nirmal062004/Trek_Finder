@@ -17,7 +17,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     if (!isAuthenticated) {
       router.push('/login');
     }
-  }, [loading, isAuthenticated, pathname]);
+  }, [loading, isAuthenticated, pathname, router]);
 
   if (loading) return <div style={{ padding: 20 }}>Loading…</div>;
 

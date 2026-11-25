@@ -3,45 +3,46 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from '@/styles/Settings.module.css';
-import { Settings as SettingsIcon, User, Lock, Bell, HelpCircle, X, LogOut, Database, Download, Speaker } from 'lucide-react';
+import { Settings as SettingsIcon, User, Lock, Bell, HelpCircle, X, LogOut, Database } from 'lucide-react';
 import { authAPI } from '@/shared/services/api';
 import { useAuth } from '@/context/AuthContext';
 
 type SettingsSection = 'general' | 'account' | 'privacy' | 'notifications' | 'data' | 'help';
+type ProfileVisibility = 'public' | 'friends' | 'private';
+
+interface SettingsState {
+    general: { soundEffects: boolean; autoPlayVideos: boolean };
+    privacy: { profileVisibility: ProfileVisibility; showActivityStatus: boolean };
+    notifications: { pushNotifications: boolean; emailUpdates: boolean };
+}
 
 const SETTINGS_STORAGE_KEY = 'trek_finder_settings';
 
 function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: () => void; initialSection?: SettingsSection }) {
+    const router = useRouter();
     const { user, updateUser, logout } = useAuth();
     const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
     const [editName, setEditName] = useState(user?.name || '');
     const [editEmail, setEditEmail] = useState(user?.email || '');
-
-    useEffect(() => {
-        if (user) {
-            setEditName(user.name || '');
-            setEditEmail(user.email || '');
-        }
-    }, [user]);
     const [nameSaved, setNameSaved] = useState(false);
     const [emailSaved, setEmailSaved] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
 
     // Default Settings
-    const defaultSettings = {
+    const defaultSettings: SettingsState = {
         general: { soundEffects: true, autoPlayVideos: true },
         privacy: { profileVisibility: 'public', showActivityStatus: true },
         notifications: { pushNotifications: true, emailUpdates: true },
     };
 
-    const [settings, setSettings] = useState(() => {
+    const [settings, setSettings] = useState<SettingsState>(() => {
         if (typeof window === 'undefined') return defaultSettings;
 
         try {
             const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
             if (saved) {
-                const parsed = JSON.parse(saved);
+                const parsed = JSON.parse(saved) as Partial<SettingsState>;
                 // Deep merge with defaults to ensure no keys are missing (undefined)
                 return {
                     general: { ...defaultSettings.general, ...parsed.general },
@@ -57,12 +58,18 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
 
     useEffect(() => { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)); }, [settings]);
 
-    const handleToggle = (section: keyof typeof settings, key: string) => {
-        setSettings((prev: any) => ({ ...prev, [section]: { ...prev[section], [key]: !prev[section][key] } }));
+    const handleToggle = <Section extends keyof SettingsState>(section: Section, key: keyof SettingsState[Section] & string) => {
+        setSettings((previous) => ({
+            ...previous,
+            [section]: { ...previous[section], [key]: !previous[section][key] },
+        } as SettingsState));
     };
 
-    const handleChange = (section: keyof typeof settings, key: string, value: string) => {
-        setSettings((prev: any) => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
+    const handleChange = (value: ProfileVisibility) => {
+        setSettings((previous) => ({
+            ...previous,
+            privacy: { ...previous.privacy, profileVisibility: value },
+        }));
     };
 
     const handleSaveName = async () => {
@@ -91,7 +98,7 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
 
     const handleDeleteAccount = async () => {
         if (!deleteConfirm) { setDeleteConfirm(true); return; }
-        try { await authAPI.logout(); } catch (e) { }
+        try { await authAPI.logout(); } catch { }
         localStorage.clear();
         if (logout) logout();
         alert('Account deactivated locally.');
@@ -108,10 +115,8 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
     };
 
     const handleSignOut = async () => {
-        try { await authAPI.logout(); } catch (e) { }
-        localStorage.removeItem('supabase.auth.token');
-        if (logout) logout();
-        window.location.href = '/login';
+        await logout();
+        router.push('/login');
     };
 
     const renderSidebar = () => (
@@ -229,7 +234,7 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                                     <label className={styles['item-label']}>Profile Visibility</label>
                                     <span className={styles['item-desc']}>Control who can see your treks and stats.</span>
                                 </div>
-                                <select className={styles['select-input']} value={settings.privacy.profileVisibility} onChange={(e) => handleChange('privacy', 'profileVisibility', e.target.value)}>
+                                <select className={styles['select-input']} value={settings.privacy.profileVisibility} onChange={(e) => handleChange(e.target.value as ProfileVisibility)}>
                                     <option value="public">Everyone</option>
                                     <option value="friends">Friends Only</option>
                                     <option value="private">Private</option>
@@ -239,7 +244,7 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
                             <div className={styles['setting-item']}>
                                 <div className={styles['item-info']}>
                                     <label className={styles['item-label']}>Activity Status</label>
-                                    <span className={styles['item-desc']}>Let friends know when you're active.</span>
+                                    <span className={styles['item-desc']}>Let friends know when you&apos;re active.</span>
                                 </div>
                                 <label className={styles['toggle-switch']}>
                                     <input type="checkbox" checked={!!settings.privacy?.showActivityStatus} onChange={() => handleToggle('privacy', 'showActivityStatus')} />

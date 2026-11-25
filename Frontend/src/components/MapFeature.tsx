@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+
+type MapLibreWorkerConfig = typeof maplibregl & { setWorkerUrl: (url: string) => void };
+const mapLibreWorkerUrl = new URL('../../node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString();
 
 interface MapFeatureProps {
     center: [number, number]; // [lat, lng]
@@ -35,25 +38,32 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
     const markersRef = useRef<maplibregl.Marker[]>([]);
+    const onMapClickRef = useRef(onMapClick);
+    const initialViewRef = useRef({ zoom, pitch });
+
+    useEffect(() => {
+        onMapClickRef.current = onMapClick;
+    }, [onMapClick]);
 
     const toLngLat = (coords: [number, number]): [number, number] => [coords[1], coords[0]];
 
     useEffect(() => {
         if (!mapContainerRef.current || mapRef.current) return;
 
+        (maplibregl as MapLibreWorkerConfig).setWorkerUrl(mapLibreWorkerUrl);
+
         const map = new maplibregl.Map({
             container: mapContainerRef.current,
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`,
             center: [73.7898, 19.9975],
-            zoom: zoom || 14,
-            pitch: pitch,
+            zoom: initialViewRef.current.zoom || 14,
+            pitch: initialViewRef.current.pitch,
             bearing: 0,
-            antialias: true,
             minZoom: 2,
             maxZoom: 20,
             trackResize: true,
             fadeDuration: 0,
-        } as any);
+        });
 
         map.on('style.load', () => {
             map.addSource('maptiler-terrain', {
@@ -123,8 +133,8 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        map.on('click', (e) => {
-            onMapClick(e.lngLat.lat, e.lngLat.lng);
+        map.on('click', (e: maplibregl.MapMouseEvent) => {
+            onMapClickRef.current(e.lngLat.lat, e.lngLat.lng);
         });
 
         mapRef.current = map;
@@ -144,7 +154,7 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
                     pitch: pitch,
                     bearing: 0,
                     duration: 800,
-                    easing: (t) => t * (2 - t)
+                    easing: (t: number) => t * (2 - t)
                 });
             }
         }

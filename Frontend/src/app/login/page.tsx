@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import styles from '@/styles/Login.module.css';
 import Navigation from '@/components/Navigation';
 import { authAPI } from '@/shared/services/api';
-import { supabase } from '@/shared/services/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, Compass } from 'lucide-react';
@@ -42,8 +41,8 @@ export default function LoginPage() {
                 await login();
                 router.push('/');
             }
-        } catch (err: any) {
-            setError(err?.message || 'Login failed. Please try again.');
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Login failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -52,7 +51,7 @@ export default function LoginPage() {
     return (
         <div className={styles.container}>
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 100 }}>
-                <Navigation activeNav={null} onNavChange={() => { }} locked={true} />
+                <Navigation />
             </div>
 
             <div className={styles.visualSide}>
@@ -77,7 +76,7 @@ export default function LoginPage() {
                         Join a community of explorers, find hidden trails, and share your journey with the world.
                     </p>
                     <div className={styles.visualQuote}>
-                        "The journey of a thousand miles begins with a single step."
+                        &quot;The journey of a thousand miles begins with a single step.&quot;
                     </div>
                 </div>
             </div>
