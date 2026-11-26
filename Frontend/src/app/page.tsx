@@ -9,7 +9,6 @@ import { Mountain, ArrowRight, Camera, Target, Zap, Shield, Users, MapPin, Ruler
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { backendAPI } from '@/shared/services/api';
 import type { TrekRecord } from '@/shared/services/api';
-import LiveBackground from '@/components/LiveBackground';
 
 export default function HomePage() {
     const router = useRouter();
@@ -92,8 +91,6 @@ export default function HomePage() {
 
     return (
         <div className={`${homeStyles['home-container']} ${designStyles['dark-luxury']} ${designStyles['noise']}`} ref={containerRef}>
-            {/* ── Live animated canvas background ── */}
-            <LiveBackground />
             {/* Ambient Background layer */}
             <motion.div className={homeStyles['bg-ambient']} style={{ opacity: opacityBg }} />
 
@@ -176,6 +173,21 @@ export default function HomePage() {
                             <span>Loved by active adventurers</span>
                         </div>
                     </motion.div>
+                </div>
+
+                <div className={homeStyles['hero-stats']} aria-label="Trek Finder highlights">
+                    {[
+                        { icon: <Mountain size={19} />, value: stats.trails > 0 ? formatStat(stats.trails, 200) : '500+', label: 'Trails to explore' },
+                        { icon: <Users size={19} />, value: stats.trekkers > 0 ? formatStat(stats.trekkers, 500) : '10k+', label: 'Adventurers' },
+                        { icon: <MapPin size={19} />, value: '100 km', label: 'Default search radius' },
+                        { icon: <Compass size={19} />, value: '2D + 3D', label: 'Terrain maps' },
+                    ].map((stat) => (
+                        <div className={homeStyles['hero-stat-card']} key={stat.label}>
+                            <span className={homeStyles['hero-stat-icon']}>{stat.icon}</span>
+                            <span className={homeStyles['hero-stat-value']}>{stat.value}</span>
+                            <span className={homeStyles['hero-stat-label']}>{stat.label}</span>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Scroll Indicator */}

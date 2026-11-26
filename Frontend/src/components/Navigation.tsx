@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import styles from '@/styles/Navigation.module.css';
 import designStyles from '@/styles/DesignSystem.module.css';
-import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Mountain, House, Compass, Images, MessageCircle, Menu, X } from 'lucide-react';
+import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Mountain, House, Compass, Images, MessageCircle, Menu, X, Bell } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 function subscribeToAvatarChanges(onChange: () => void): () => void {
@@ -48,7 +48,7 @@ const Navigation: React.FC = () => {
   }, []);
 
   return (
-    <nav className={`${styles.navbar} ${designStyles['contextual-nav']} ${designStyles['finder-nav']}`}>
+    <nav className={`${styles.navbar} ${designStyles['contextual-nav']} ${designStyles['finder-nav']} ${styles['finder-page-nav']}`}>
       <div className={`${styles['nav-container']} ${designStyles['contextual-nav-container']} ${designStyles['finder-nav-container']}`}>
         <Link href="/" className={`${styles['nav-logo']} ${designStyles['nav-brand']}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
           <div className={designStyles['nav-brand-icon']}>
@@ -84,6 +84,10 @@ const Navigation: React.FC = () => {
               <button className={`${styles['nav-link']} ${designStyles['nav-link']}`}>ADMIN</button>
             </Link>
           )}
+
+          <button className={styles['nav-bell']} aria-label="Notifications">
+            <Bell size={20} />
+          </button>
 
           <div className={`${styles['profile-container']} ${designStyles['nav-actions']}`} ref={dropdownRef}>
             {isAuthenticated ? (

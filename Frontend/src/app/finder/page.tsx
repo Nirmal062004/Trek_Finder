@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import styles from '@/styles/TrekFinder.module.css';
 import designStyles from '@/styles/DesignSystem.module.css';
-import { Search, Heart, RotateCcw, LocateFixed, Layers, Plus, Minus, SlidersHorizontal, Clock, Mountain, Ruler, Navigation } from 'lucide-react';
+import { Search, Heart, RotateCcw, LocateFixed, Layers, Plus, Minus, SlidersHorizontal, Clock, Mountain, Ruler, Navigation, MapPin, Filter, Compass } from 'lucide-react';
 import { fetchWithStaleWhileRevalidate, makeCacheKey } from '@/shared/utils/fetchCache';
 import { supabase } from '@/shared/services/supabaseClient';
 import TrekCard from '@/components/TrekCard';
@@ -449,6 +449,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     // Pending controls: user edits these then clicks Apply to set `filters` and `radius`
     const [pendingFilters, setPendingFilters] = useState<Filters>(filters);
     const [pendingRadius, setPendingRadius] = useState<number>(radius);
+    const [filtersExpanded, setFiltersExpanded] = useState(false);
 
     // Supabase bookmarks (replaces localStorage wishlist)
     const [savedIds, setSavedIds] = useState<Set<number | string>>(new Set());
@@ -1122,6 +1123,9 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                         onTerrainProfile={handleTerrainProfile}
                     />
 
+                    {/* Search results toast near map top */}
+                    {status && <div className={styles['finder-map-status']} role="status" aria-live="polite">{status}</div>}
+
                     <div className={styles['finder-map-mode']} role="group" aria-label="Map pitch">
                         <button className={mapPitch === 0 ? styles['finder-mode-active'] : ''} onClick={() => setMapPitch(0)}>2D</button>
                         <button className={mapPitch > 0 ? styles['finder-mode-active'] : ''} onClick={() => setMapPitch(60)}>3D</button>
@@ -1140,34 +1144,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                         </div>
                     </div>
 
-                    {status && <div className={styles['finder-map-status']} role="status" aria-live="polite">{status}</div>}
-
-                    <section className={styles['finder-elevation']} aria-label="Trail elevation profile">
-                        <div className={styles['finder-elevation-heading']}>
-                            <span><Mountain size={17} /> Trail Elevation</span>
-                            {elevationProfile.length > 1 && <strong><Navigation size={14} /> +{Math.round(elevationGain).toLocaleString()} m</strong>}
-                        </div>
-                        {elevationPoints ? (
-                            <>
-                                <svg className={styles['finder-elevation-chart']} viewBox="0 0 100 44" preserveAspectRatio="none" role="img" aria-label="Terrain elevation profile">
-                                    <defs>
-                                        <linearGradient id="elevation-fill" x1="0" x2="0" y1="0" y2="1">
-                                            <stop offset="0%" stopColor="#41e88a" stopOpacity="0.44" />
-                                            <stop offset="100%" stopColor="#41e88a" stopOpacity="0" />
-                                        </linearGradient>
-                                    </defs>
-                                    <polygon points={`0,44 ${elevationPoints} 100,44`} fill="url(#elevation-fill)" />
-                                    <polyline points={elevationPoints} fill="none" stroke="#49ed91" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
-                                </svg>
-                                <div className={styles['finder-elevation-labels']}>
-                                    <span><Ruler size={12} /> {Math.round(elevationMinimum).toLocaleString()} m</span>
-                                    <span>{Math.round(elevationMaximum).toLocaleString()} m</span>
-                                </div>
-                            </>
-                        ) : (
-                            <p>Select a trail to inspect its terrain profile.</p>
-                        )}
-                    </section>
                 </div>
 
                 <aside className={`${styles['finder-panel']} ${designStyles['frosted-panel']} ${designStyles['glass-elevated']}`}>
@@ -1201,60 +1177,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                         </button>
                     </div>
 
-                    <section className={styles['finder-filters']} aria-label="Trail filters">
-                        <div className={styles['finder-filter-heading']}>
-                            <h2>Filters</h2>
-                            <button onClick={handleReset}>Reset <RotateCcw size={13} /></button>
-                        </div>
-                        <div className={styles['finder-range-label']}>
-                            <label htmlFor="finder-radius">Distance</label>
-                            <span>≤ {pendingRadius} km</span>
-                        </div>
-                        <input id="finder-radius" className={styles['finder-range']} type="range" min={10} max={150} step={5} value={pendingRadius} onChange={(event) => setPendingRadius(Number(event.target.value))} disabled={loading} />
-                        <div className={styles['finder-range-limits']}><span>10 km</span><span>150+ km</span></div>
-
-                        <div className={styles['finder-control-block']}>
-                            <label>Difficulty</label>
-                            <div className={styles['finder-difficulty']} role="group" aria-label="Difficulty">
-                                {['all', 'Easy', 'Moderate', 'Hard'].map((difficulty) => (
-                                    <button key={difficulty} className={pendingFilters.difficulty === difficulty ? styles['finder-difficulty-active'] : ''} onClick={() => setPendingFilters({ ...pendingFilters, difficulty })}>{difficulty === 'all' ? 'All' : difficulty}</button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className={styles['finder-select-row']}>
-                            <label htmlFor="finder-duration"><Clock size={14} /> Duration</label>
-                            <select id="finder-duration" value={pendingFilters.duration} onChange={(event) => setPendingFilters({ ...pendingFilters, duration: event.target.value })}>
-                                <option value="all">Any Duration</option>
-                                <option value="short">Up to 3 hours</option>
-                                <option value="medium">3 to 8 hours</option>
-                                <option value="long">Over 8 hours</option>
-                            </select>
-                        </div>
-
-                        <div className={styles['finder-select-row']}>
-                            <label htmlFor="finder-sort"><SlidersHorizontal size={14} /> Sort By</label>
-                            <select id="finder-sort" value={pendingFilters.sortBy} onChange={(event) => setPendingFilters({ ...pendingFilters, sortBy: event.target.value })}>
-                                <option value="distance">Distance (Near to Far)</option>
-                                <option value="difficulty">Difficulty</option>
-                            </select>
-                        </div>
-
-                        <button
-                            className={styles['finder-apply']}
-                            onClick={() => { setFilters(pendingFilters); setRadius(pendingRadius); }}
-                            disabled={loading || (
-                                pendingFilters.difficulty === filters.difficulty &&
-                                pendingFilters.duration === filters.duration &&
-                                pendingFilters.sortBy === filters.sortBy &&
-                                pendingFilters.showSavedOnly === filters.showSavedOnly &&
-                                pendingRadius === radius
-                            )}
-                        >
-                            <SlidersHorizontal size={16} /> Apply Filters
-                        </button>
-                    </section>
-
+                    {/* Results section — prominent, immediately visible */}
                     <div className={styles['finder-results-heading']}>
                         <h2>{results.length} Trails Found</h2>
                         <button onClick={() => chooseSavedView(true)} title="Show saved trails" aria-label="Show saved trails"><Heart size={17} /></button>
@@ -1263,7 +1186,8 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                     <div className={styles['finder-results']}>
                         {results.length === 0 && !loading && (
                             <div className={styles['finder-empty']}>
-                                No trails available based on this place and current filters. Try adjusting the radius, difficulty, or search a different location.
+                                <MapPin size={16} />
+                                <span>No trails available based on this place and current filters. Try adjusting the radius, difficulty, or search a different location.</span>
                             </div>
                         )}
                         {loading && (
@@ -1295,6 +1219,100 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                             );
                         })}
                     </div>
+
+                    <section className={styles['finder-elevation']} aria-label="Trail elevation profile">
+                        <div className={styles['finder-elevation-heading']} onClick={() => setSelectedTrek(null)}>
+                            <span><Mountain size={17} /> Trail Elevation</span>
+                            <Compass size={14} />
+                        </div>
+                        {elevationProfile.length > 1 ? (
+                            <>
+                                <strong><Navigation size={14} /> +{Math.round(elevationGain).toLocaleString()} m gain</strong>
+                                <svg className={styles['finder-elevation-chart']} viewBox="0 0 100 44" preserveAspectRatio="none" role="img" aria-label="Terrain elevation profile">
+                                    <defs>
+                                        <linearGradient id="elevation-fill" x1="0" x2="0" y1="0" y2="1">
+                                            <stop offset="0%" stopColor="#41e88a" stopOpacity="0.44" />
+                                            <stop offset="100%" stopColor="#41e88a" stopOpacity="0" />
+                                        </linearGradient>
+                                    </defs>
+                                    <polygon points={`0,44 ${elevationPoints} 100,44`} fill="url(#elevation-fill)" />
+                                    <polyline points={elevationPoints} fill="none" stroke="#49ed91" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
+                                </svg>
+                                <div className={styles['finder-elevation-labels']}>
+                                    <span><Ruler size={12} /> {Math.round(elevationMinimum).toLocaleString()} m</span>
+                                    <span>{Math.round(elevationMaximum).toLocaleString()} m</span>
+                                </div>
+                            </>
+                        ) : (
+                            <p>Select a trail to inspect its terrain profile.</p>
+                        )}
+                    </section>
+
+                    {/* Collapsible Filters section — below results */}
+                    <section className={`${styles['finder-filters']} ${filtersExpanded ? '' : styles['finder-filters-collapsed']}`} aria-label="Trail filters">
+                        <div className={styles['finder-filter-heading']} onClick={() => setFiltersExpanded(!filtersExpanded)} style={{ cursor: 'pointer' }}>
+                            <Filter size={14} />
+                            <h2>Filters</h2>
+                            <div className={styles['finder-filter-summary']} aria-hidden="true">
+                                <span>{pendingRadius} km</span>
+                                <span>{pendingFilters.difficulty === 'all' ? 'All levels' : pendingFilters.difficulty}</span>
+                                <span>{pendingFilters.duration === 'all' ? 'Any duration' : pendingFilters.duration}</span>
+                            </div>
+                            <button onClick={handleReset} style={{ cursor: 'pointer' }}>Reset <RotateCcw size={13} /></button>
+                            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#2bff88' }}>{filtersExpanded ? '▴' : '▾'}</span>
+                        </div>
+                        {filtersExpanded && (
+                            <>
+                                <div className={styles['finder-range-label']}>
+                                    <label htmlFor="finder-radius">Distance</label>
+                                    <span>≤ {pendingRadius} km</span>
+                                </div>
+                                <input id="finder-radius" className={styles['finder-range']} type="range" min={10} max={150} step={5} value={pendingRadius} onChange={(event) => setPendingRadius(Number(event.target.value))} disabled={loading} />
+                                <div className={styles['finder-range-limits']}><span>10 km</span><span>150+ km</span></div>
+
+                                <div className={styles['finder-control-block']}>
+                                    <label>Difficulty</label>
+                                    <div className={styles['finder-difficulty']} role="group" aria-label="Difficulty">
+                                        {['all', 'Easy', 'Moderate', 'Hard'].map((difficulty) => (
+                                            <button key={difficulty} className={pendingFilters.difficulty === difficulty ? styles['finder-difficulty-active'] : ''} onClick={() => setPendingFilters({ ...pendingFilters, difficulty })}>{difficulty === 'all' ? 'All' : difficulty}</button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className={styles['finder-select-row']}>
+                                    <label htmlFor="finder-duration"><Clock size={14} /> Duration</label>
+                                    <select id="finder-duration" value={pendingFilters.duration} onChange={(event) => setPendingFilters({ ...pendingFilters, duration: event.target.value })}>
+                                        <option value="all">Any Duration</option>
+                                        <option value="short">Up to 3 hours</option>
+                                        <option value="medium">3 to 8 hours</option>
+                                        <option value="long">Over 8 hours</option>
+                                    </select>
+                                </div>
+
+                                <div className={styles['finder-select-row']}>
+                                    <label htmlFor="finder-sort"><SlidersHorizontal size={14} /> Sort By</label>
+                                    <select id="finder-sort" value={pendingFilters.sortBy} onChange={(event) => setPendingFilters({ ...pendingFilters, sortBy: event.target.value })}>
+                                        <option value="distance">Distance (Near to Far)</option>
+                                        <option value="difficulty">Difficulty</option>
+                                    </select>
+                                </div>
+
+                                <button
+                                    className={styles['finder-apply']}
+                                    onClick={() => { setFilters(pendingFilters); setRadius(pendingRadius); }}
+                                    disabled={loading || (
+                                        pendingFilters.difficulty === filters.difficulty &&
+                                        pendingFilters.duration === filters.duration &&
+                                        pendingFilters.sortBy === filters.sortBy &&
+                                        pendingFilters.showSavedOnly === filters.showSavedOnly &&
+                                        pendingRadius === radius
+                                    )}
+                                >
+                                    <SlidersHorizontal size={16} /> Apply Filters
+                                </button>
+                            </>
+                        )}
+                    </section>
                 </aside>
             </main>
         </div>
