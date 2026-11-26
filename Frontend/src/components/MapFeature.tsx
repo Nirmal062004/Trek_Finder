@@ -32,18 +32,30 @@ interface MapFeatureProps {
     onMapClick: (lat: number, lng: number) => void;
     fitBounds?: [number, number][];
     pitch?: number;
+    terrainEnabled?: boolean;
+    terrainPath?: [number, number][];
+    onTerrainProfile?: (elevations: number[]) => void;
 }
 
-const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polylines, circleMarkers, onMapClick, fitBounds, pitch = 0 }) => {
+const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polylines, circleMarkers, onMapClick, fitBounds, pitch = 0, terrainEnabled = true, terrainPath, onTerrainProfile }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
     const markersRef = useRef<maplibregl.Marker[]>([]);
     const onMapClickRef = useRef(onMapClick);
-    const initialViewRef = useRef({ zoom, pitch });
+    const terrainEnabledRef = useRef(terrainEnabled);
+    const initialViewRef = useRef({ zoom, pitch, center });
 
     useEffect(() => {
         onMapClickRef.current = onMapClick;
     }, [onMapClick]);
+
+    useEffect(() => {
+        terrainEnabledRef.current = terrainEnabled;
+        const map = mapRef.current;
+        if (map?.isStyleLoaded() && map.getSource('maptiler-terrain')) {
+            map.setTerrain({ source: 'maptiler-terrain', exaggeration: terrainEnabled ? 1.5 : 0 });
+        }
+    }, [terrainEnabled]);
 
     const toLngLat = (coords: [number, number]): [number, number] => [coords[1], coords[0]];
 
@@ -55,7 +67,7 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
         const map = new maplibregl.Map({
             container: mapContainerRef.current,
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`,
-            center: [73.7898, 19.9975],
+            center: toLngLat(initialViewRef.current.center),
             zoom: initialViewRef.current.zoom || 14,
             pitch: initialViewRef.current.pitch,
             bearing: 0,
@@ -71,7 +83,7 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
                 url: `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`,
                 tileSize: 512
             });
-            map.setTerrain({ source: 'maptiler-terrain', exaggeration: 1.5 });
+            map.setTerrain({ source: 'maptiler-terrain', exaggeration: terrainEnabledRef.current ? 1.5 : 0 });
         });
 
         map.on('load', () => {
@@ -131,8 +143,6 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
             }
         });
 
-        map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
         map.on('click', (e: maplibregl.MapMouseEvent) => {
             onMapClickRef.current(e.lngLat.lat, e.lngLat.lng);
         });
@@ -144,6 +154,26 @@ const MapFeature: React.FC<MapFeatureProps> = ({ center, zoom, markers, polyline
             mapRef.current = null;
         };
     }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !terrainPath?.length || !onTerrainProfile || !terrainEnabled) {
+            onTerrainProfile?.([]);
+            return;
+        }
+
+        const sampleStep = Math.max(1, Math.floor(terrainPath.length / 36));
+        const sampleProfile = () => {
+            const elevations = terrainPath
+                .filter((_, index) => index % sampleStep === 0 || index === terrainPath.length - 1)
+                .map((coordinate) => map.queryTerrainElevation(toLngLat(coordinate)))
+                .filter((elevation): elevation is number => typeof elevation === 'number' && Number.isFinite(elevation));
+            onTerrainProfile(elevations);
+        };
+
+        map.once('idle', sampleProfile);
+        return () => { map.off('idle', sampleProfile); };
+    }, [terrainEnabled, terrainPath, onTerrainProfile]);
 
     // Explicit Pitch and Bearing selection (Strictly manual)
     useEffect(() => {

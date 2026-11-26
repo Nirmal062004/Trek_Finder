@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import styles from '@/styles/TrekFinder.module.css';
-import { Search, Heart, RotateCcw } from 'lucide-react';
+import designStyles from '@/styles/DesignSystem.module.css';
+import { Search, Heart, RotateCcw, LocateFixed, Layers, Plus, Minus, SlidersHorizontal, Clock, Mountain, Ruler, Navigation } from 'lucide-react';
 import { fetchWithStaleWhileRevalidate, makeCacheKey } from '@/shared/utils/fetchCache';
 import { supabase } from '@/shared/services/supabaseClient';
 import { useWishlist } from '@/context/WishlistContext';
@@ -119,6 +120,8 @@ interface SearchTrekResult {
     difficulty?: number | null;
     length_km?: number | null;
 }
+
+const DEFAULT_MAP_CENTER: [number, number] = [30.3, 79.6];
 
 async function runOverpass(query: string, externalSignal?: AbortSignal): Promise<OverpassResponse> {
     const key = makeCacheKey('overpass', query);
@@ -420,9 +423,12 @@ interface TrekFinderProps {
 
 const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     // Map State
-    const [mapCenter, setMapCenter] = useState<[number, number]>([22.5937, 78.9629]);
-    const [mapZoom, setMapZoom] = useState(5);
-    const [mapPitch, setMapPitch] = useState(0);
+    const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_MAP_CENTER);
+    const [mapZoom, setMapZoom] = useState(8);
+    const [mapPitch, setMapPitch] = useState(60);
+    const [terrainEnabled, setTerrainEnabled] = useState(true);
+    const [selectedTrek, setSelectedTrek] = useState<Trek | null>(null);
+    const [elevationProfile, setElevationProfile] = useState<number[]>([]);
     const [markers, setMarkers] = useState<Array<{ coords: [number, number]; title?: string }>>([]);
     const [polylines, setPolylines] = useState<Polyline[]>([]);
     const [circleMarkers, setCircleMarkers] = useState<CircleMarker[]>([]);
@@ -449,6 +455,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     const [pendingRadius, setPendingRadius] = useState<number>(radius);
     const latestViewedTrekId = useRef<number | string | null>(null);
     const searchAbortRef = useRef<AbortController | null>(null);
+    const handleTerrainProfile = React.useCallback((profile: number[]) => setElevationProfile(profile), []);
     // wishlist is managed by WishlistContext
     const toggleSaveTrek = (trek: Trek) => toggleTrek({ ...trek, isSaved: !!isSaved(trek.id) });
 
@@ -597,6 +604,8 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     };
 
     const handleMapClick = async (lat: number, lng: number) => {
+        setSelectedTrek(null);
+        setElevationProfile([]);
         setLoading(true);
 
         setStatus(`🔍 Scanning within ${pendingRadius || radius} km for treks...`);
@@ -664,6 +673,19 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         }
     };
 
+    const handleLocateMe = () => {
+        if (!navigator.geolocation) {
+            setStatus('Location is not available in this browser.');
+            return;
+        }
+        setStatus('Finding your location...');
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => { void handleMapClick(coords.latitude, coords.longitude); },
+            () => setStatus('Location permission was denied or unavailable.'),
+            { enableHighAccuracy: true, timeout: 12000 }
+        );
+    };
+
     const fetchRouteFromOSRM = async (start: { lat: number, lng: number }, end: { lat: number, lng: number }) => {
         try {
             const url = `https://router.project-osrm.org/route/v1/foot/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
@@ -682,6 +704,8 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     const viewRoute = async (trek: Trek) => {
         if (!trek.coords || !trek.coords.length) return;
         latestViewedTrekId.current = trek.id;
+        setSelectedTrek(trek);
+        setElevationProfile([]);
 
         const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = [{
             coords: trek.coords,
@@ -786,14 +810,35 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         setMarkers([]);
         setCircleMarkers([]);
         setFitBounds(undefined);
-        setMapCenter([22.5937, 78.9629]);
-        setMapZoom(5);
+        setMapCenter(DEFAULT_MAP_CENTER);
+        setMapZoom(8);
+        setMapPitch(60);
+        setSelectedTrek(null);
+        setElevationProfile([]);
+        setTerrainEnabled(true);
         const defaultFilters: Filters = { difficulty: 'all', duration: 'all', sortBy: 'distance', showSavedOnly: false };
         setFilters(defaultFilters);
         setPendingFilters(defaultFilters);
         setStatus('');
         setUserMarkerSet(false);
     };
+
+    const chooseSavedView = (showSavedOnly: boolean) => {
+        const nextFilters = { ...pendingFilters, showSavedOnly };
+        setPendingFilters(nextFilters);
+        setFilters(nextFilters);
+    };
+
+    const elevationMinimum = elevationProfile.length ? Math.min(...elevationProfile) : 0;
+    const elevationMaximum = elevationProfile.length ? Math.max(...elevationProfile) : 0;
+    const elevationRange = Math.max(1, elevationMaximum - elevationMinimum);
+    const elevationPoints = elevationProfile.map((elevation, index) => {
+        const x = elevationProfile.length > 1 ? (index / (elevationProfile.length - 1)) * 100 : 50;
+        const y = 40 - ((elevation - elevationMinimum) / elevationRange) * 32;
+        return `${x},${y}`;
+    }).join(' ');
+    const elevationGain = elevationProfile.slice(1).reduce((gain, elevation, index) =>
+        gain + Math.max(0, elevation - elevationProfile[index]), 0);
 
     const applyFilters = React.useCallback((data: Trek[], f: Filters, nameFilter?: string): Trek[] => {
         let filtered = [...data];
@@ -979,10 +1024,9 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     }, [filters, allResults, trekNameFilter, savedTreks, markers, mapCenter, radius, applyFilters, circleMarkers.length, fetchTreksFromSupabase, savedIds, userMarkerSet]);
 
     return (
-        <div className={styles['trek-finder-bg']}>
-            <div role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>{status}</div>
-            <div className={styles['trek-finder']}>
-                <div className={styles['trek-map']}>
+        <div className={`${styles['trek-finder-bg']} ${designStyles['dark-luxury']} ${designStyles['noise']}`}>
+            <main className={styles['finder-stage']}>
+                <div className={styles['finder-map']}>
                     <MapFeature
                         center={mapCenter}
                         zoom={mapZoom}
@@ -992,130 +1036,155 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                         fitBounds={fitBounds}
                         pitch={mapPitch}
                         onMapClick={handleMapClick}
+                        terrainEnabled={terrainEnabled}
+                        terrainPath={selectedTrek?.coords}
+                        onTerrainProfile={handleTerrainProfile}
                     />
+
+                    <div className={styles['finder-map-mode']} role="group" aria-label="Map pitch">
+                        <button className={mapPitch === 0 ? styles['finder-mode-active'] : ''} onClick={() => setMapPitch(0)}>2D</button>
+                        <button className={mapPitch > 0 ? styles['finder-mode-active'] : ''} onClick={() => setMapPitch(60)}>3D</button>
+                    </div>
+
+                    <div className={styles['finder-map-tools']}>
+                        <button onClick={() => setTerrainEnabled((enabled) => !enabled)} title={terrainEnabled ? 'Flatten terrain' : 'Show terrain'} aria-label={terrainEnabled ? 'Flatten terrain' : 'Show terrain'}>
+                            <Layers size={19} />
+                        </button>
+                        <button onClick={handleLocateMe} title="Find my location" aria-label="Find my location">
+                            <LocateFixed size={19} />
+                        </button>
+                        <div className={styles['finder-zoom-tools']}>
+                            <button onClick={() => setMapZoom((zoom) => Math.min(20, zoom + 1))} title="Zoom in" aria-label="Zoom in"><Plus size={19} /></button>
+                            <button onClick={() => setMapZoom((zoom) => Math.max(2, zoom - 1))} title="Zoom out" aria-label="Zoom out"><Minus size={19} /></button>
+                        </div>
+                    </div>
+
+                    {status && <div className={styles['finder-map-status']} role="status" aria-live="polite">{status}</div>}
+
+                    <section className={styles['finder-elevation']} aria-label="Trail elevation profile">
+                        <div className={styles['finder-elevation-heading']}>
+                            <span><Mountain size={17} /> Trail Elevation</span>
+                            {elevationProfile.length > 1 && <strong><Navigation size={14} /> +{Math.round(elevationGain).toLocaleString()} m</strong>}
+                        </div>
+                        {elevationPoints ? (
+                            <>
+                                <svg className={styles['finder-elevation-chart']} viewBox="0 0 100 44" preserveAspectRatio="none" role="img" aria-label="Terrain elevation profile">
+                                    <defs>
+                                        <linearGradient id="elevation-fill" x1="0" x2="0" y1="0" y2="1">
+                                            <stop offset="0%" stopColor="#41e88a" stopOpacity="0.44" />
+                                            <stop offset="100%" stopColor="#41e88a" stopOpacity="0" />
+                                        </linearGradient>
+                                    </defs>
+                                    <polygon points={`0,44 ${elevationPoints} 100,44`} fill="url(#elevation-fill)" />
+                                    <polyline points={elevationPoints} fill="none" stroke="#49ed91" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
+                                </svg>
+                                <div className={styles['finder-elevation-labels']}>
+                                    <span><Ruler size={12} /> {Math.round(elevationMinimum).toLocaleString()} m</span>
+                                    <span>{Math.round(elevationMaximum).toLocaleString()} m</span>
+                                </div>
+                            </>
+                        ) : (
+                            <p>Select a trail to inspect its terrain profile.</p>
+                        )}
+                    </section>
                 </div>
 
-                <div className={styles['trek-sidebar']}>
-                    <div className={styles['sidebar-header']}>
-                        <h3>Find Your Trek</h3>
-                    </div>
+                <aside className={`${styles['finder-panel']} ${designStyles['frosted-panel']} ${designStyles['glass-elevated']}`}>
+                    <header className={styles['finder-panel-heading']}>
+                        <h1>Discover <span>Trails</span></h1>
+                        <p>Find, explore and plan your next adventure</p>
+                    </header>
 
-                    <div className={styles['search-bar']}>
+                    <form className={styles['finder-search']} onSubmit={(event) => { event.preventDefault(); void searchLocationAndZoom(locationSearchQuery); }}>
+                        <Search size={17} aria-hidden="true" />
                         <input
                             type="text"
-                            placeholder="Find location on map..."
+                            placeholder="Search trails, peaks or locations..."
                             value={locationSearchQuery}
                             onChange={(e) => setLocationSearchQuery(e.target.value)}
-                            onKeyPress={(e) => { if (e.key === 'Enter') searchLocationAndZoom(locationSearchQuery); }}
-                            className={styles['search-input']}
                         />
-                        <button
-                            onClick={() => searchLocationAndZoom(locationSearchQuery)}
-                            disabled={loading || !locationSearchQuery.trim()}
-                            className={styles['search-button']}
-                            title="Search location"
-                        >
-                            <Search size={20} />
+                        <button type="submit" disabled={loading || !locationSearchQuery.trim()} title="Search location" aria-label="Search location">
+                            <Search size={17} />
                         </button>
-                        <button
-                            onClick={handleReset}
-                            className={styles['search-button']}
-                            title="Reset Map"
-                            style={{ background: 'rgba(255, 68, 68, 0.2)', border: '1px solid rgba(255, 68, 68, 0.4)', color: '#ff8888' }}
-                        >
+                        <button type="button" onClick={handleReset} title="Reset map" aria-label="Reset map">
                             <RotateCcw size={20} />
+                        </button>
+                    </form>
+
+                    <div className={styles['finder-view-tabs']} role="group" aria-label="Trail list view">
+                        <button className={!pendingFilters.showSavedOnly ? styles['finder-tab-active'] : ''} onClick={() => chooseSavedView(false)}>
+                            <Mountain size={15} /> All Trails
+                        </button>
+                        <button className={pendingFilters.showSavedOnly ? styles['finder-tab-active'] : ''} onClick={() => chooseSavedView(true)}>
+                            <Heart size={15} fill={pendingFilters.showSavedOnly ? 'currentColor' : 'none'} /> Saved
                         </button>
                     </div>
 
-                    <div className={styles['controls']}>
-                        <div className={styles['control-group']}>
-                            <label>Search Radius</label>
-                            <select value={pendingRadius} onChange={(e) => setPendingRadius(Number(e.target.value))} disabled={loading}>
-                                <option value={60}>60 km (Default)</option>
-                                <option value={100}>100 km</option>
-                                <option value={150}>150 km</option>
-                            </select>
+                    <section className={styles['finder-filters']} aria-label="Trail filters">
+                        <div className={styles['finder-filter-heading']}>
+                            <h2>Filters</h2>
+                            <button onClick={handleReset}>Reset <RotateCcw size={13} /></button>
                         </div>
-                        <div className={styles['control-group']}>
+                        <div className={styles['finder-range-label']}>
+                            <label htmlFor="finder-radius">Distance</label>
+                            <span>≤ {pendingRadius} km</span>
+                        </div>
+                        <input id="finder-radius" className={styles['finder-range']} type="range" min={10} max={150} step={5} value={pendingRadius} onChange={(event) => setPendingRadius(Number(event.target.value))} disabled={loading} />
+                        <div className={styles['finder-range-limits']}><span>10 km</span><span>150+ km</span></div>
+
+                        <div className={styles['finder-control-block']}>
                             <label>Difficulty</label>
-                            <select value={pendingFilters.difficulty} onChange={(e) => setPendingFilters({ ...pendingFilters, difficulty: e.target.value })}>
-                                <option value="all">All Levels</option>
-                                <option value="Easy">Easy</option>
-                                <option value="Moderate">Moderate</option>
-                                <option value="Hard">Hard</option>
+                            <div className={styles['finder-difficulty']} role="group" aria-label="Difficulty">
+                                {['all', 'Easy', 'Moderate', 'Hard'].map((difficulty) => (
+                                    <button key={difficulty} className={pendingFilters.difficulty === difficulty ? styles['finder-difficulty-active'] : ''} onClick={() => setPendingFilters({ ...pendingFilters, difficulty })}>
+                                        {difficulty === 'all' ? 'All' : difficulty}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className={styles['finder-select-row']}>
+                            <label htmlFor="finder-duration"><Clock size={14} /> Duration</label>
+                            <select id="finder-duration" value={pendingFilters.duration} onChange={(event) => setPendingFilters({ ...pendingFilters, duration: event.target.value })}>
+                                <option value="all">Any Duration</option>
+                                <option value="short">Up to 3 hours</option>
+                                <option value="medium">3 to 8 hours</option>
+                                <option value="long">Over 8 hours</option>
                             </select>
                         </div>
-                        <div className={styles['control-group']}>
-                            <label>Duration</label>
-                            <select value={pendingFilters.duration} onChange={(e) => setPendingFilters({ ...pendingFilters, duration: e.target.value })}>
-                                <option value="all">All</option>
-                                <option value="short">Short (&le; 3h)</option>
-                                <option value="medium">Medium (3-8h)</option>
-                                <option value="long">Long (&gt; 8h)</option>
-                            </select>
-                        </div>
-                        <div className={styles['control-group']}>
-                            <label>Sort By</label>
-                            <select value={pendingFilters.sortBy} onChange={(e) => setPendingFilters({ ...pendingFilters, sortBy: e.target.value })}>
-                                <option value="distance">Distance</option>
+
+                        <div className={styles['finder-select-row']}>
+                            <label htmlFor="finder-sort"><SlidersHorizontal size={14} /> Sort By</label>
+                            <select id="finder-sort" value={pendingFilters.sortBy} onChange={(event) => setPendingFilters({ ...pendingFilters, sortBy: event.target.value })}>
+                                <option value="distance">Distance (Near to Far)</option>
                                 <option value="difficulty">Difficulty</option>
                             </select>
                         </div>
-                        <div style={{ marginTop: 12 }}>
-                            <button
-                                className={styles['search-button']}
-                                onClick={() => {
-                                    setFilters(pendingFilters);
-                                    setRadius(pendingRadius);
-                                }}
-                                disabled={
-                                    pendingFilters.difficulty === filters.difficulty &&
-                                    pendingFilters.duration === filters.duration &&
-                                    pendingFilters.sortBy === filters.sortBy &&
-                                    pendingFilters.showSavedOnly === filters.showSavedOnly &&
-                                    pendingRadius === radius
-                                }
-                            >
-                                Apply Filters
-                            </button>
-                        </div>
-                        <div className={styles['control-group']}>
-                            <label>Map View Angle</label>
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                                <button
-                                    onClick={() => setMapPitch(0)}
-                                    className={styles['search-button']}
-                                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: mapPitch === 0 ? '#2bff88' : 'rgba(255,255,255,0.05)', color: mapPitch === 0 ? '#0a1612' : '#ffffff' }}
-                                >
-                                    2D View
-                                </button>
-                                <button
-                                    onClick={() => setMapPitch(60)}
-                                    className={styles['search-button']}
-                                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: mapPitch > 0 ? '#2bff88' : 'rgba(255,255,255,0.05)', color: mapPitch > 0 ? '#0a1612' : '#ffffff' }}
-                                >
-                                    3D View
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className={styles['trek-counter']}>
                         <button
-                            className={styles['search-button']}
-                            style={{ background: pendingFilters.showSavedOnly ? '#ff4444' : 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', marginLeft: '10px' }}
-                            onClick={() => setPendingFilters({ ...pendingFilters, showSavedOnly: !pendingFilters.showSavedOnly })}
-                            title="Show Saved Only"
+                            className={styles['finder-apply']}
+                            onClick={() => { setFilters(pendingFilters); setRadius(pendingRadius); }}
+                            disabled={loading || (
+                                pendingFilters.difficulty === filters.difficulty &&
+                                pendingFilters.duration === filters.duration &&
+                                pendingFilters.sortBy === filters.sortBy &&
+                                pendingFilters.showSavedOnly === filters.showSavedOnly &&
+                                pendingRadius === radius
+                            )}
                         >
-                            <Heart size={20} fill={pendingFilters.showSavedOnly ? "white" : "none"} />
+                            <SlidersHorizontal size={16} /> Apply Filters
                         </button>
-                        <span className={styles['counter-text']}>{results.length} Trek{results.length !== 1 ? 's' : ''} Found</span>
+                    </section>
+
+                    <div className={styles['finder-results-heading']}>
+                        <h2>{results.length} Trails Found</h2>
+                        <button onClick={() => chooseSavedView(true)} title="Show saved trails" aria-label="Show saved trails"><Heart size={17} /></button>
                     </div>
 
-                    <div className={styles['results']}>
+                    <div className={styles['finder-results']}>
                         {results.length === 0 && !loading && (
-                            <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
-                                No results yet. Click on the map to start exploring.
+                            <div className={styles['finder-empty']}>
+                                No trails yet. Search for a location or click the map to explore.
                             </div>
                         )}
                         {loading && (
@@ -1150,8 +1219,8 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                             );
                         })}
                     </div>
-                </div>
-            </div>
+                </aside>
+            </main>
         </div>
     );
 };

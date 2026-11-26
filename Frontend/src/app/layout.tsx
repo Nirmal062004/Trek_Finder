@@ -25,7 +25,7 @@ export default function RootLayout({
             <body className={inter.className}>
                 <AuthProvider>
                     <WishlistProvider>
-                        <div id="__next" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#0d1810', color: '#ffffff' }}>
+                        <div id="__next" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#06100d', color: '#e8f0eb' }}>
                             <ClientNavbarWrapper />
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                 <RequireAuth>{children}</RequireAuth>

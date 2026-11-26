@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styles from '@/styles/Signup.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import Navigation from '@/components/Navigation';
 import { authAPI } from '@/shared/services/api';
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, Compass } from 'lucide-react';
@@ -65,12 +66,12 @@ export default function SignupPage() {
     const handleLoginClick = () => router.push('/login');
 
     return (
-        <div className={styles.container}>
+        <div className={`${styles.container} ${designStyles['dark-luxury']} ${designStyles['noise']}`}>
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 100 }}>
                 <Navigation />
             </div>
 
-            <div className={styles.visualSide}>
+            <div className={`${styles.visualSide} ${designStyles['cinematic-bg']}`}>
                 <video
                     className={styles.videoBackground}
                     autoPlay
@@ -87,7 +88,7 @@ export default function SignupPage() {
                         <Compass size={32} className={styles.logoIcon} />
                         <span className={styles.brandName}>TREK FINDER</span>
                     </div>
-                    <h1 className={styles.visualTitle}>Start Your <br />Expedition.</h1>
+                    <h1 className={`${styles.visualTitle} ${designStyles['text-gradient']}`}>Start Your <br />Expedition.</h1>
                     <p className={styles.visualText}>
                         Create your profile, track your treks, and connect with fellow adventurers in your region.
                     </p>
@@ -97,8 +98,8 @@ export default function SignupPage() {
                 </div>
             </div>
 
-            <div className={styles.formSide}>
-                <div className={styles.formContainer}>
+            <div className={`${styles.formSide} ${designStyles['frosted-panel']}`}>
+                <div className={`${styles.formContainer} ${designStyles['glass']}`}>
                     <div className={styles.header}>
                         <h2 className={styles.title}>Join the Tribe</h2>
                         <p className={styles.subtitle}>Create your free account today</p>

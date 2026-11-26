@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Heart, Clock, Star, MapPin, Ruler } from 'lucide-react';
+import Image from 'next/image';
+import { Heart, Clock, MapPin, Ruler, Navigation } from 'lucide-react';
 import styles from '@/styles/TrekFinder.module.css';
 import type { TrekSummary } from '@/context/WishlistContext';
 
@@ -19,31 +20,36 @@ export default function TrekCard({ trek, name, isSaved, onSave, onViewRoute }: T
     const distance = trek.distance || 0;
     const length = trek.length || 0;
     const safety = trek.safety || 3;
+    const location = trek.tags?.region || trek.tags?.location || trek.tags?.is_in || 'Uttarakhand, India';
 
     return (
-        <div id={`trek-card-${trek.id}`} className={`${styles['result-item']} ${isSaved ? styles['saved-item'] : ''}`}>
-            <div className={styles['result-header']}>
-                <div className={styles['result-title']}>{name}</div>
-                <button
-                    onClick={onSave}
-                    className={styles['save-btn']}
-                    title={isSaved ? "Remove from saved" : "Save trek"}
-                >
-                    <Heart size={18} fill={isSaved ? "#ff4444" : "none"} color={isSaved ? "#ff4444" : "#888"} />
+        <article id={`trek-card-${trek.id}`} className={`${styles['finder-card']} ${isSaved ? styles['finder-card-saved'] : ''}`}>
+            <div className={styles['finder-card-image']}>
+                <Image src="/assets/img/image.jpg" alt="Forest trail landscape" fill sizes="104px" />
+            </div>
+            <div className={styles['finder-card-content']}>
+                <div className={styles['finder-card-heading']}>
+                    <h3>{name}</h3>
+                    <button
+                        onClick={onSave}
+                        className={styles['finder-card-save']}
+                        title={isSaved ? "Remove from saved" : "Save trek"}
+                        aria-label={isSaved ? `Remove ${name} from saved trails` : `Save ${name}`}
+                    >
+                        <Heart size={18} fill={isSaved ? "currentColor" : "none"} />
+                    </button>
+                </div>
+                <div className={styles['finder-card-location']}><MapPin size={14} /> <span>{location}</span></div>
+                <div className={styles['finder-card-meta']}>
+                    <span><Ruler size={13} /> {length > 0 ? `${(length / 1000).toFixed(0)} km` : `${(distance / 1000).toFixed(1)} km`}</span>
+                    <span><Clock size={13} /> {duration >= 24 ? `${Math.round(duration / 24)} days` : `${duration} h`}</span>
+                    <span className={`${styles['finder-card-difficulty']} ${styles[`difficulty-${difficulty.toLowerCase()}`]}`}>{difficulty}</span>
+                    <span className={styles['finder-card-safety']} title={`Safety rating ${safety} of 5`}>{safety}/5</span>
+                </div>
+                <button className={styles['finder-card-route']} onClick={onViewRoute}>
+                    <Navigation size={13} /> View route
                 </button>
             </div>
-            <div className={styles['result-badges']}>
-                <span className={`${styles['badge']} ${styles[`difficulty-${difficulty.toLowerCase()}`]}`}>{difficulty}</span>
-                <span className={styles['badge']} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {duration}h</span>
-                <span className={styles['badge']} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    {Array(safety).fill(0).map((_, i) => (<Star key={i} size={12} fill="#FFD700" color="#FFD700" />))}
-                </span>
-            </div>
-            <div className={styles['result-meta']}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {(distance / 1000).toFixed(1)} km away</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Ruler size={14} /> {(length / 1000).toFixed(1)} km trek</span>
-            </div>
-            <button className={styles['view-route-btn']} onClick={onViewRoute}>View Route</button>
-        </div>
+        </article>
     );
 }

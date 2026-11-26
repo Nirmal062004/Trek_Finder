@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import styles from '@/styles/Profile.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { authAPI } from '@/shared/services/api';
@@ -156,8 +157,8 @@ export default function ProfilePage() {
     // -- Renderers --
 
     const renderOverview = () => (
-        <div className={styles.grid}>
-            <div className={styles.card}>
+        <div className={`${styles.grid} ${designStyles['bento-grid']}`}>
+            <div className={`${styles.card} ${designStyles['glass']} ${designStyles['premium-card']}`}>
                 <div className={styles['card-icon']}><Mountain size={32} color="#2bff88" /></div>
                 <h3 className={styles['card-title']}>Journey So Far</h3>
                 <p className={styles['card-desc']}>You have <strong>{completedTreks.length}</strong> completed treks and <strong>{savedTreks.length}</strong> planned adventures.</p>
@@ -165,7 +166,7 @@ export default function ProfilePage() {
                     <span>{savedTreks.length > 0 ? 'Keep going!' : 'Start exploring!'}</span>
                 </div>
             </div>
-            <div className={styles.card}>
+            <div className={`${styles.card} ${designStyles['glass']} ${designStyles['premium-card']}`}>
                 <div className={styles['card-icon']}><Users size={32} color="#42a5f5" /></div>
                 <h3 className={styles['card-title']}>Community</h3>
                 <p className={styles['card-desc']}>Active member of <strong>{userCommunities.length}</strong> communities. Connected with fellow trekkers.</p>
@@ -173,7 +174,7 @@ export default function ProfilePage() {
                     <span>{userCommunities.length > 0 ? 'Network Active' : 'Join a tribe!'}</span>
                 </div>
             </div>
-            <div className={styles.card}>
+            <div className={`${styles.card} ${designStyles['glass']} ${designStyles['premium-card']}`}>
                 <div className={styles['card-icon']}><Star size={32} color="#ffeb3b" /></div>
                 <h3 className={styles['card-title']}>Status</h3>
                 <p className={styles['card-desc']}>Current Level: <strong>{level}</strong><br /> XP to next level: {((level + 1) * 100) - (completedTreks.length * 50)} XP</p>
@@ -350,7 +351,7 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className={styles['profile-page']}>
+        <div className={`${styles['profile-page']} ${designStyles['dark-luxury']} ${designStyles['noise']}`}>
             {/* Header */}
             <div className={styles['profile-header']}>
                 <div className={styles['avatar']} onClick={isEditing ? openAvatarEditor : undefined} style={{ position: 'relative', overflow: 'hidden', padding: 0, border: '4px solid #fff', cursor: isEditing ? 'pointer' : 'default' }}>

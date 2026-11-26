@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styles from '@/styles/Login.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import Navigation from '@/components/Navigation';
 import { authAPI } from '@/shared/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -49,12 +50,12 @@ export default function LoginPage() {
     };
 
     return (
-        <div className={styles.container}>
+        <div className={`${styles.container} ${designStyles['dark-luxury']} ${designStyles['noise']}`}>
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 100 }}>
                 <Navigation />
             </div>
 
-            <div className={styles.visualSide}>
+            <div className={`${styles.visualSide} ${designStyles['cinematic-bg']}`}>
                 <video
                     className={styles.videoBackground}
                     autoPlay
@@ -71,7 +72,7 @@ export default function LoginPage() {
                         <Compass size={32} className={styles.logoIcon} />
                         <span className={styles.brandName}>TREK FINDER</span>
                     </div>
-                    <h1 className={styles.visualTitle}>Discover Your <br />Next Adventure.</h1>
+                    <h1 className={`${styles.visualTitle} ${designStyles['text-gradient']}`}>Discover Your <br />Next Adventure.</h1>
                     <p className={styles.visualText}>
                         Join a community of explorers, find hidden trails, and share your journey with the world.
                     </p>
@@ -81,8 +82,8 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            <div className={styles.formSide}>
-                <div className={styles.formContainer}>
+            <div className={`${styles.formSide} ${designStyles['frosted-panel']}`}>
+                <div className={`${styles.formContainer} ${designStyles['glass']}`}>
                     <div className={styles.header}>
                         <h2 className={styles.title}>Welcome Back</h2>
                         <p className={styles.subtitle}>Sign in to continue your exploration</p>

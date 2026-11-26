@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Users, Map, MessageSquare, Plus, Trash2, Edit, X, ArrowLeft, Menu, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import styles from '@/styles/Admin.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 
 type AdminTab = 'users' | 'treks' | 'communities' | 'stories';
 type AdminRow = { id: string;[key: string]: unknown };
@@ -108,6 +109,8 @@ const AdminPage: React.FC = () => {
         setActiveTab(tab);
         setSelectedIds([]);
     };
+
+    const containerClass = `${styles.container} ${designStyles['dark-luxury']} ${designStyles['noise']}`;
 
     const deleteItem = async (id: string, type: 'user' | 'trek' | 'community' | 'review' | 'story') => {
         try {
@@ -459,11 +462,11 @@ const AdminPage: React.FC = () => {
     };
 
     return (
-        <div className={styles.container}>
+        <div className={containerClass}>
             {renderSidebar()}
-            <main className={styles.main}>
+            <main className={`${styles.main} ${designStyles['glass']}`}>
                 {renderHeader()}
-                <div className={styles.content}>
+                <div className={`${styles.content} ${designStyles['frosted']}`}>
                     {renderStats()}
 
                     <div className={styles.sectionHeader}>

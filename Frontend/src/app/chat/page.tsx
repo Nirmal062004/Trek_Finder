@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback, useSyncExternalStore }
 import { useAuth } from '@/context/AuthContext';
 
 import styles from '@/styles/ChatRoom.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import wsService from '@/shared/services/websocket';
 import { MessageSquare, LogOut, Search, Plus, Paperclip, Smile, Send, Check, X, RefreshCw, Copy, ChevronLeft } from 'lucide-react';
 import { getIconByKey, availableIconKeys, Community } from '@/shared/services/communityData';
@@ -256,7 +257,7 @@ const ChatRoom: React.FC = () => {
     if (!isNameSet) return <div className={styles['loading']}>Initializing...</div>;
 
     return (
-        <div className={`${styles['app-container']} ${activeChatId ? styles['chat-active'] : ''}`}>
+        <div className={`${styles['app-container']} ${activeChatId ? styles['chat-active'] : ''} ${designStyles['dark-luxury']} ${designStyles['noise']}`}>
 
             {/* LEFT SIDE PANEL */}
             <div className={styles['side-panel']}>

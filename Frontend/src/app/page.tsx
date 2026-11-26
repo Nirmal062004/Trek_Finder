@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform, type Variants } from 'framer-motion';
 import homeStyles from '@/styles/Home.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import { Mountain, ArrowRight, Camera, Target, Zap, Shield, Users, MapPin, Ruler, Circle, Clock, Rocket, Mail, Star, Flame, Trophy, Compass, ArrowUpRight } from 'lucide-react';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { backendAPI } from '@/shared/services/api';
@@ -90,14 +91,14 @@ export default function HomePage() {
     };
 
     return (
-        <div className={homeStyles['home-container']} ref={containerRef}>
+        <div className={`${homeStyles['home-container']} ${designStyles['dark-luxury']} ${designStyles['noise']}`} ref={containerRef}>
             {/* ── Live animated canvas background ── */}
             <LiveBackground />
             {/* Ambient Background layer */}
             <motion.div className={homeStyles['bg-ambient']} style={{ opacity: opacityBg }} />
 
             {/* Hero Section */}
-            <div className={homeStyles['home-hero']}>
+            <div className={`${homeStyles['home-hero']} ${designStyles['cinematic-bg']} ${designStyles['asymmetric']}`}>
                 <motion.div
                     className={homeStyles['hero-image-layer']}
                     style={{ y: heroY }}
@@ -108,7 +109,7 @@ export default function HomePage() {
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
-                        className={homeStyles['hero-badge']}
+                        className={`${homeStyles['hero-badge']} ${designStyles['magnetic']}`}
                     >
                         <Compass className={homeStyles['pulse-icon']} size={20} />
                         <span>Explore the Uncharted</span>
@@ -190,7 +191,7 @@ export default function HomePage() {
             </div>
 
             {/* Features Section */}
-            <section className={homeStyles['features-section']}>
+            <section className={`${homeStyles['features-section']} ${designStyles['mesh-gradient']} ${designStyles['topo-bg']}`}>
                 <div className={homeStyles['section-glow']}></div>
                 <motion.div
                     className={homeStyles['section-header']}
@@ -207,7 +208,7 @@ export default function HomePage() {
                 </motion.div>
 
                 <motion.div
-                    className={homeStyles['features-grid']}
+                    className={`${homeStyles['features-grid']} ${designStyles['bento-grid']}`}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-100px" }}
@@ -219,7 +220,7 @@ export default function HomePage() {
                         { icon: <Zap size={32} />, title: "AI Discoveries", desc: "Our algorithm finds hidden gems tailored precisely to your fitness and skill level.", badge: "Smart" },
                         { icon: <Users size={32} />, title: "Elite Community", desc: "Track with veterans. Share route adjustments, camp spots, and gear reviews.", badge: "Network" }
                     ].map((feat, idx) => (
-                        <motion.div key={idx} variants={itemVariants} className={homeStyles['feature-card']}>
+                        <motion.div key={idx} variants={itemVariants} className={`${homeStyles['feature-card']} ${designStyles['glass']} ${designStyles['premium-card']}`}>
                             <div className={homeStyles['feature-icon-wrapper']}>
                                 {feat.icon}
                             </div>
@@ -232,7 +233,7 @@ export default function HomePage() {
             </section>
 
             {/* Popular Destinations */}
-            <section className={homeStyles['destinations-section']}>
+            <section className={`${homeStyles['destinations-section']} ${designStyles['noise']} ${designStyles['ambient-light']}`}>
                 <motion.div
                     className={homeStyles['section-header']}
                     initial="hidden"
@@ -248,7 +249,7 @@ export default function HomePage() {
                 </motion.div>
 
                 <motion.div
-                    className={homeStyles['destinations-grid']}
+                    className={`${homeStyles['destinations-grid']} ${designStyles['bento-grid']}`}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true, margin: "-100px" }}
@@ -270,14 +271,14 @@ export default function HomePage() {
                                 key={trek.id || i}
                                 variants={itemVariants}
                                 whileHover={{ y: -10, scale: 1.02 }}
-                                className={homeStyles['destination-card']}
+                                className={`${homeStyles['destination-card']} ${designStyles['image-mask']} ${designStyles['premium-card']}`}
                                 onClick={() => handleNavigate('finder')}
                             >
                                 <div className={homeStyles['card-overlay']}></div>
                                 <div className={homeStyles['destination-image-box']}>
                                     <Mountain size={48} className={homeStyles['mountain-icon']} />
                                 </div>
-                                <div className={homeStyles['destination-content']}>
+                                <div className={`${homeStyles['destination-content']} ${designStyles['premium-card-content']}`}>
                                     <h3 className={homeStyles['destination-name']}>{name}</h3>
                                     <p className={homeStyles['destination-location']}>
                                         <MapPin size={14} /> {location}
@@ -314,7 +315,7 @@ export default function HomePage() {
             </section>
 
             {/* Immersion Parallax CTA Section */}
-            <section className={homeStyles['cta-parallax-section']}>
+            <section className={`${homeStyles['cta-parallax-section']} ${designStyles['mesh-gradient']}`}>
                 <div className={homeStyles['cta-parallax-bg']}></div>
                 <motion.div
                     className={homeStyles['cta-content']}
@@ -340,7 +341,7 @@ export default function HomePage() {
             </section>
 
             {/* Minimalist Premium Footer */}
-            <footer className={homeStyles['premium-footer']}>
+            <footer className={`${homeStyles['premium-footer']} ${designStyles['noise']}`}>
                 <div className={homeStyles['footer-top-glow']}></div>
                 <div className={homeStyles['footer-content']}>
                     <div className={homeStyles['footer-brand']}>

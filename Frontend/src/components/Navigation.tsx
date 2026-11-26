@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import styles from '@/styles/Navigation.module.css';
-import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Compass, Menu, X } from 'lucide-react';
+import designStyles from '@/styles/DesignSystem.module.css';
+import { Lock, User as UserIcon, Settings as SettingsIcon, LogOut, Mountain, House, Compass, Images, MessageCircle, Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 function subscribeToAvatarChanges(onChange: () => void): () => void {
@@ -29,12 +30,11 @@ const Navigation: React.FC = () => {
   const avatarKey = `trek_finder_avatar_seed_${avatarOwner}`;
   const getAvatarSeed = useCallback(() => localStorage.getItem(avatarKey) || user?.name || 'Anonymous', [avatarKey, user?.name]);
   const avatarSeed = useSyncExternalStore(subscribeToAvatarChanges, getAvatarSeed, () => user?.name || 'Anonymous');
-
   const navItems = [
-    { href: '/', label: 'HOME', id: 'home' },
-    { href: '/finder', label: 'FINDER', id: 'finder' },
-    { href: '/gallery', label: 'GALLERY', id: 'gallery' },
-    { href: '/chat', label: 'CHAT ROOM', id: 'chat' },
+    { href: '/', label: 'Home', id: 'home', icon: House },
+    { href: '/finder', label: 'Finder', id: 'finder', icon: Compass },
+    { href: '/gallery', label: 'Gallery', id: 'gallery', icon: Images },
+    { href: '/chat', label: 'Chat Room', id: 'chat', icon: MessageCircle },
   ];
 
   useEffect(() => {
@@ -48,10 +48,12 @@ const Navigation: React.FC = () => {
   }, []);
 
   return (
-    <nav className={styles.navbar}>
-      <div className={styles['nav-container']}>
-        <Link href="/" className={styles['nav-logo']} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-          <Compass size={24} color="#2bff88" style={{ marginRight: '8px' }} />
+    <nav className={`${styles.navbar} ${designStyles['contextual-nav']} ${designStyles['finder-nav']}`}>
+      <div className={`${styles['nav-container']} ${designStyles['contextual-nav-container']} ${designStyles['finder-nav-container']}`}>
+        <Link href="/" className={`${styles['nav-logo']} ${designStyles['nav-brand']}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+          <div className={designStyles['nav-brand-icon']}>
+            <Mountain size={20} color="#2bff88" />
+          </div>
           <span className={styles['logo-text']}>Trek Finder</span>
         </Link>
 
@@ -63,33 +65,34 @@ const Navigation: React.FC = () => {
           {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
 
-        <div className={`${styles['nav-menu']} ${isMobileMenuOpen ? styles['mobile-open'] : ''}`}>
+        <div className={`${styles['nav-menu']} ${designStyles['finder-nav-links']} ${isMobileMenuOpen ? styles['mobile-open'] : ''}`}>
           {navItems.map((item) => {
             const isActive = item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href);
             return (
               <Link
                 key={item.id}
                 href={item.href}
-                className={`${styles['nav-link']} ${isActive ? styles.active : ''}`}
+                className={`${styles['nav-link']} ${designStyles['nav-link']} ${designStyles['finder-nav-link']} ${isActive ? styles.active : ''} ${isActive ? designStyles['finder-nav-link-active'] : ''}`}
               >
-                {item.label}
+                <item.icon size={16} aria-hidden="true" />
+                <span>{item.label}</span>
               </Link>
             );
           })}
           {isAdmin && (
             <Link href="/admin">
-              <button className={`${styles['nav-link']}`}>ADMIN</button>
+              <button className={`${styles['nav-link']} ${designStyles['nav-link']}`}>ADMIN</button>
             </Link>
           )}
 
-          <div className={styles['profile-container']} ref={dropdownRef}>
+          <div className={`${styles['profile-container']} ${designStyles['nav-actions']}`} ref={dropdownRef}>
             {isAuthenticated ? (
               <>
                 <button
-                  className={styles['profile-icon']}
+                  className={`${styles['profile-icon']} ${designStyles['nav-profile']}`}
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   title={user?.name}
-                  style={{ padding: 0, overflow: 'hidden', border: '2px solid rgba(43,255,136,0.3)' }}
+                  style={{ padding: 0, overflow: 'hidden' }}
                 >
                   <Image
                     src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`}

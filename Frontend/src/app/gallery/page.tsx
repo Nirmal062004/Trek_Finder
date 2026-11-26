@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from '@/styles/Gallery.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Image as ImageIcon, X, Upload, PenTool, ArrowLeft, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, X, PenTool, ArrowLeft, MapPin } from 'lucide-react';
 import { defaultCommunities, getIconByKey, Community } from '@/shared/services/communityData';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/shared/services/supabaseClient';
@@ -340,50 +341,76 @@ const Gallery: React.FC = () => {
 
   if (isContributeOpen) {
     return (
-      <div className={styles['story-mode-container']}>
-        <div className={styles['story-content-wrapper']}>
-          <div className={styles['preview-section']}>
-            <button
-              className={styles['story-back-btn']}
-              onClick={() => setIsContributeOpen(false)}
-            >
-              <ArrowLeft size={20} /> Back to Gallery
-            </button>
+      <div className={styles['postcard-mode']}>
+        <nav className={styles['postcard-nav']}>
+          <button
+            className={styles['postcard-back']}
+            onClick={() => setIsContributeOpen(false)}
+          >
+            <ArrowLeft size={18} /> Back to Gallery
+          </button>
+        </nav>
 
-            <div className={styles['preview-card']}>
-              <div className={styles['preview-image-placeholder']}>
+        <div className={styles['postcard-body']}>
+          <header className={styles['postcard-header']}>
+            <h1 className={styles['postcard-title']}>Share Your Adventure</h1>
+            <p className={styles['postcard-subtitle']}>
+              Inspire others with your journey.
+            </p>
+          </header>
+
+          <div className={styles['postcard']}>
+            <div className={styles['postcard-inner']}>
+              <div className={styles['postcard-avatar']}>
                 {formPreview ? (
-                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                    <Image src={formPreview} alt="Preview" fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 50vw" />
+                  <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', borderRadius: '12px' }}>
+                    <Image src={formPreview} alt="Preview" fill style={{ objectFit: 'cover' }} />
                   </div>
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(0,0,0,0.4)', fontSize: 28 }}>
+                    📷
+                  </div>
+                )}
+              </div>
+              <div className={styles['postcard-lines']}>
+                <div className={styles['postcard-line']} />
+                <div className={`${styles['postcard-line']} short`} />
+                <div className={`${styles['postcard-line']} long`} />
+              </div>
+              <div className={styles['postcard-photo']} onClick={() => document.getElementById('story-file')?.click()}>
+                {formPreview ? (
+                  <Image src={formPreview} alt="Preview" fill style={{ objectFit: 'cover' }} />
                 ) : (
                   <span>Add a photo</span>
                 )}
-              </div>
-              <div className={styles['preview-caption-area']}>
-                <div className={styles['preview-title']}>
-                  {formTitle || "Your Story Title"}
+                <div className={styles['postcard-preview-overlay']}>
+                  <h2 className={styles['postcard-preview-title']}>
+                    {formTitle || 'Your Story Title'}
+                  </h2>
+                  <p className={styles['postcard-preview-location']}>
+                    {formTrekName || 'Location'}
+                  </p>
                 </div>
-                <div className={styles['preview-location']}>
-                  {formTrekName || "Location"}
-                </div>
+                <input
+                  id="story-file"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                />
               </div>
             </div>
           </div>
 
-          <div className={styles['story-form-container']}>
-            <div className={styles['story-form-header']}>
-              <h2 className={styles['story-form-title']}>Share Your Adventure</h2>
-              <p className={styles['story-form-subtitle']}>
-                Inspire others with your journey.
-              </p>
-            </div>
-
+          <div className={styles['postcard-form']}>
             <form onSubmit={handleSubmit}>
-              <div className={styles['input-group']}>
-                <label className={styles['input-label']}>Title</label>
+              <h2>Story Details</h2>
+              <p>Fill in your trek story and share it with the community.</p>
+
+              <div className={styles['postcard-field']}>
+                <label className={styles['postcard-label']}>Title</label>
                 <input
-                  className={styles['minimal-input']}
+                  className={styles['postcard-input']}
                   type="text"
                   placeholder="Give your story a catchy title..."
                   value={formTitle}
@@ -393,10 +420,10 @@ const Gallery: React.FC = () => {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                <div className={styles['input-group']}>
-                  <label className={styles['input-label']}>State</label>
+                <div className={styles['postcard-field']}>
+                  <label className={styles['postcard-label']}>State</label>
                   <select
-                    className={styles['minimal-input']}
+                    className={styles['postcard-select']}
                     value={formState}
                     onChange={(e) => {
                       setFormState(e.target.value);
@@ -410,10 +437,10 @@ const Gallery: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                <div className={styles['input-group']}>
-                  <label className={styles['input-label']}>District</label>
+                <div className={styles['postcard-field']}>
+                  <label className={styles['postcard-label']}>District</label>
                   <input
-                    className={styles['minimal-input']}
+                    className={styles['postcard-input']}
                     type="text"
                     placeholder="District Name"
                     value={formDistrict}
@@ -424,10 +451,10 @@ const Gallery: React.FC = () => {
                 </div>
               </div>
 
-              <div className={styles['input-group']}>
-                <label className={styles['input-label']}>Trek / Spot Name</label>
+              <div className={styles['postcard-field']}>
+                <label className={styles['postcard-label']}>Trek / Spot Name</label>
                 <input
-                  className={styles['minimal-input']}
+                  className={styles['postcard-input']}
                   type="text"
                   placeholder="Where did you go?"
                   value={formTrekName}
@@ -436,10 +463,10 @@ const Gallery: React.FC = () => {
                 />
               </div>
 
-              <div className={styles['input-group']}>
-                <label className={styles['input-label']}>Community Tag (Optional)</label>
+              <div className={styles['postcard-field']}>
+                <label className={styles['postcard-label']}>Community Tag (Optional)</label>
                 <select
-                  className={styles['minimal-input']}
+                  className={styles['postcard-select']}
                   value={formCommunity}
                   onChange={(e) => setFormCommunity(e.target.value)}
                 >
@@ -450,35 +477,37 @@ const Gallery: React.FC = () => {
                 </select>
               </div>
 
-              <div className={styles['input-group']}>
-                <label className={styles['input-label']}>Your Story</label>
+              <div className={styles['postcard-field']}>
+                <label className={styles['postcard-label']}>Your Story</label>
                 <textarea
-                  className={styles['minimal-textarea']}
+                  className={styles['postcard-textarea']}
                   placeholder="Tell us about the trail, the view, the feeling..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                 ></textarea>
               </div>
 
-              <div className={styles['input-group']}>
-                <label className={styles['input-label']}>Photo (one image)</label>
-                <div className={styles['upload-zone']} onClick={() => document.getElementById('story-file')?.click()}>
-                  <Upload size={32} color="#2bff88" />
-                  <p style={{ marginTop: '10px', color: '#ccc' }}>Click to upload one image (JPEG/PNG)</p>
-                  <input
-                    id="story-file"
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleFileChange}
-                  />
+              <div className={styles['postcard-social']}>
+                <div className={styles['postcard-social-label']}>Share on</div>
+                <div className={styles['postcard-social-row']}>
+                  <button className={styles['postcard-social-icon']} title="Twitter">
+                    🐦
+                  </button>
+                  <button className={styles['postcard-social-icon']} title="Instagram">
+                    📷
+                  </button>
+                  <button className={styles['postcard-social-icon']} title="Facebook">
+                    📘
+                  </button>
+                  <button className={styles['postcard-social-icon']} title="LinkedIn">
+                    in
+                  </button>
                 </div>
               </div>
 
-              <button type="submit" className={styles['publish-btn']}>
+              <button type="submit" className={styles['postcard-publish']}>
                 Publish Story
               </button>
-
             </form>
           </div>
         </div>
@@ -486,7 +515,7 @@ const Gallery: React.FC = () => {
     );
   }
   return (
-    <section className={styles['gallery-section']}>
+    <section className={`${styles['gallery-section']} ${designStyles['dark-luxury']} ${designStyles['noise']} ${designStyles['mesh-gradient']}`}>
       <div className={styles['gallery-container']}>
         <div className={styles['gallery-header']}>
           <h2 className={styles['gallery-title']}>Trek Gallery</h2>
@@ -616,11 +645,11 @@ const Gallery: React.FC = () => {
               </div>
             </div>
 
-            <div className={styles['media-grid']}>
+            <div className={`${styles['media-grid']} ${designStyles['bento-grid']}`}>
               {activeDistrict.media.map((item) => (
                 <div
                   key={item.id}
-                  className={styles['media-card']}
+                  className={`${styles['media-card']} ${designStyles['image-mask']} ${designStyles['premium-card']} ${designStyles['magnetic']}`}
                   onClick={() => handleMediaClick(item)}
                   style={{ cursor: 'pointer' }}
                 >

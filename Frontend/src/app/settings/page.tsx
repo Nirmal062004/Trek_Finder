@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from '@/styles/Settings.module.css';
+import designStyles from '@/styles/DesignSystem.module.css';
 import { Settings as SettingsIcon, User, Lock, Bell, HelpCircle, X, LogOut, Database } from 'lucide-react';
 import { authAPI } from '@/shared/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -328,9 +329,9 @@ function SettingsComponent({ onClose, initialSection = 'general' }: { onClose: (
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 900, pointerEvents: 'auto' }}>
-            <div className={styles['settings-page']}>
+            <div className={`${styles['settings-page']} ${designStyles['frosted']} ${designStyles['dark-luxury']}`}>
                 {renderSidebar()}
-                <div className={styles['content']}>
+                <div className={`${styles['content']} ${designStyles['glass']}`}>
                     <button className={styles['close-top']} onClick={onClose} aria-label="Close settings"><X size={20} /></button>
                     <div className={styles['content-wrapper']}>{renderContent()}</div>
                 </div>

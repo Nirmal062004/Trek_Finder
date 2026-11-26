@@ -12,8 +12,8 @@ html {
 }
 
 body {
-  background: #0d1810;
-  color: #ffffff;
+  background: #06100d;
+  color: #e8f0eb;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   line-height: 1.6;
@@ -29,4 +29,13 @@ body::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+/* Design system base tokens applied to body */
+body {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 40%, rgba(39, 232, 124, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 60% at 80% 20%, rgba(245, 166, 35, 0.03) 0%, transparent 50%),
+    #06100d;
+  background-attachment: fixed;
 }

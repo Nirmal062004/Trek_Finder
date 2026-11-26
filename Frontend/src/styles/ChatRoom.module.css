@@ -4,11 +4,13 @@
   width: 100vw !important;
   height: calc(100vh - 70px) !important;
   margin-top: 70px !important;
-  background: rgba(10, 22, 18, 0.95) !important;
+  background: #06100d !important;
   backdrop-filter: blur(20px) !important;
   overflow: hidden !important;
-  color: #fff !important;
+  color: #e8f0eb !important;
   font-family: 'Inter', system-ui, sans-serif !important;
+  position: relative !important;
+  isolation: isolate !important;
 }
 
 /* 1. Navigation Rail (Left) */
