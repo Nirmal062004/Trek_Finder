@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import styles from '@/styles/TrekFinder.module.css';
 import designStyles from '@/styles/DesignSystem.module.css';
-import { Search, Heart, RotateCcw, LocateFixed, Layers, Plus, Minus, SlidersHorizontal, Clock, Mountain, Ruler, Navigation, MapPin, Filter, Compass } from 'lucide-react';
+import { Search, Heart, RotateCcw, LocateFixed, Layers, Plus, Minus, SlidersHorizontal, Clock, Mountain, MapPin, Filter } from 'lucide-react';
 import { fetchWithStaleWhileRevalidate, makeCacheKey } from '@/shared/utils/fetchCache';
 import { supabase } from '@/shared/services/supabaseClient';
 import TrekCard from '@/components/TrekCard';
@@ -425,7 +425,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     const [mapPitch, setMapPitch] = useState(0); // default 2D
     const [terrainEnabled, setTerrainEnabled] = useState(true);
     const [selectedTrek, setSelectedTrek] = useState<Trek | null>(null);
-    const [elevationProfile, setElevationProfile] = useState<number[]>([]);
+
     const [markers, setMarkers] = useState<Array<{ coords: [number, number]; title?: string }>>([]);
     const [polylines, setPolylines] = useState<Polyline[]>([]);
     const [circleMarkers, setCircleMarkers] = useState<CircleMarker[]>([]);
@@ -457,7 +457,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
     const latestViewedTrekId = useRef<number | string | null>(null);
     const searchAbortRef = useRef<AbortController | null>(null);
-    const handleTerrainProfile = React.useCallback((profile: number[]) => setElevationProfile(profile), []);
+
 
     // Check auth and load bookmarks from Supabase
     useEffect(() => {
@@ -683,7 +683,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
     const handleMapClick = async (lat: number, lng: number) => {
         setSelectedTrek(null);
-        setElevationProfile([]);
         setLoading(true);
 
         setStatus(`🔍 Scanning within ${pendingRadius || radius} km for treks...`);
@@ -779,7 +778,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         if (!trek.coords || !trek.coords.length) return;
         latestViewedTrekId.current = trek.id;
         setSelectedTrek(trek);
-        setElevationProfile([]);
 
         const newPolylines: Polyline[] = [{
             coords: trek.coords,
@@ -886,7 +884,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         setMapZoom(8);
         setMapPitch(0);
         setSelectedTrek(null);
-        setElevationProfile([]);
         setTerrainEnabled(true);
         const defaultFilters: Filters = { difficulty: 'all', duration: 'all', sortBy: 'distance', showSavedOnly: false };
         setFilters(defaultFilters);
@@ -900,17 +897,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         setPendingFilters(nextFilters);
         setFilters(nextFilters);
     };
-
-    const elevationMinimum = elevationProfile.length ? Math.min(...elevationProfile) : 0;
-    const elevationMaximum = elevationProfile.length ? Math.max(...elevationProfile) : 0;
-    const elevationRange = Math.max(1, elevationMaximum - elevationMinimum);
-    const elevationPoints = elevationProfile.map((elevation, index) => {
-        const x = elevationProfile.length > 1 ? (index / (elevationProfile.length - 1)) * 100 : 50;
-        const y = 40 - ((elevation - elevationMinimum) / elevationRange) * 32;
-        return `${x},${y}`;
-    }).join(' ');
-    const elevationGain = elevationProfile.slice(1).reduce((gain, elevation, index) =>
-        gain + Math.max(0, elevation - elevationProfile[index]), 0);
 
     const applyFilters = React.useCallback((data: Trek[], f: Filters, nameFilter?: string): Trek[] => {
         let filtered = [...data];
@@ -1119,8 +1105,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                         pitch={mapPitch}
                         onMapClick={handleMapClick}
                         terrainEnabled={terrainEnabled}
-                        terrainPath={selectedTrek?.coords}
-                        onTerrainProfile={handleTerrainProfile}
                     />
 
                     {/* Search results toast near map top */}
@@ -1219,34 +1203,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                             );
                         })}
                     </div>
-
-                    <section className={styles['finder-elevation']} aria-label="Trail elevation profile">
-                        <div className={styles['finder-elevation-heading']} onClick={() => setSelectedTrek(null)}>
-                            <span><Mountain size={17} /> Trail Elevation</span>
-                            <Compass size={14} />
-                        </div>
-                        {elevationProfile.length > 1 ? (
-                            <>
-                                <strong><Navigation size={14} /> +{Math.round(elevationGain).toLocaleString()} m gain</strong>
-                                <svg className={styles['finder-elevation-chart']} viewBox="0 0 100 44" preserveAspectRatio="none" role="img" aria-label="Terrain elevation profile">
-                                    <defs>
-                                        <linearGradient id="elevation-fill" x1="0" x2="0" y1="0" y2="1">
-                                            <stop offset="0%" stopColor="#41e88a" stopOpacity="0.44" />
-                                            <stop offset="100%" stopColor="#41e88a" stopOpacity="0" />
-                                        </linearGradient>
-                                    </defs>
-                                    <polygon points={`0,44 ${elevationPoints} 100,44`} fill="url(#elevation-fill)" />
-                                    <polyline points={elevationPoints} fill="none" stroke="#49ed91" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
-                                </svg>
-                                <div className={styles['finder-elevation-labels']}>
-                                    <span><Ruler size={12} /> {Math.round(elevationMinimum).toLocaleString()} m</span>
-                                    <span>{Math.round(elevationMaximum).toLocaleString()} m</span>
-                                </div>
-                            </>
-                        ) : (
-                            <p>Select a trail to inspect its terrain profile.</p>
-                        )}
-                    </section>
 
                     {/* Collapsible Filters section — below results */}
                     <section className={`${styles['finder-filters']} ${filtersExpanded ? '' : styles['finder-filters-collapsed']}`} aria-label="Trail filters">
