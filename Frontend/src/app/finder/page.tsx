@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import styles from '@/styles/TrekFinder.module.css';
@@ -8,7 +8,6 @@ import designStyles from '@/styles/DesignSystem.module.css';
 import { Search, Heart, RotateCcw, LocateFixed, Layers, Plus, Minus, SlidersHorizontal, Clock, Mountain, Ruler, Navigation } from 'lucide-react';
 import { fetchWithStaleWhileRevalidate, makeCacheKey } from '@/shared/utils/fetchCache';
 import { supabase } from '@/shared/services/supabaseClient';
-import { useWishlist } from '@/context/WishlistContext';
 import TrekCard from '@/components/TrekCard';
 
 const MapFeature = dynamic(() => import('@/components/MapFeature'), {
@@ -16,7 +15,9 @@ const MapFeature = dynamic(() => import('@/components/MapFeature'), {
     loading: () => <div className={styles['trek-map']} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2bff88' }}>Loading Map...</div>
 });
 
-// (All helper functions and types from the original TrekFinder component are preserved here)
+// Default map center: top of K2 (when no location permission)
+const DEFAULT_MAP_CENTER: [number, number] = [35.8813, 76.5142];
+
 interface Way {
     id: number;
     tags: Record<string, string>;
@@ -121,7 +122,7 @@ interface SearchTrekResult {
     length_km?: number | null;
 }
 
-const DEFAULT_MAP_CENTER: [number, number] = [30.3, 79.6];
+const INDIA_BBOX = { south: 6.746778, west: 68.1097, north: 35.674545, east: 97.39556 };
 
 async function runOverpass(query: string, externalSignal?: AbortSignal): Promise<OverpassResponse> {
     const key = makeCacheKey('overpass', query);
@@ -135,37 +136,40 @@ async function runOverpass(query: string, externalSignal?: AbortSignal): Promise
             ];
 
             let lastError: unknown = null;
-            const maxAttempts = 3;
+            const maxAttempts = 2;
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 for (const url of endpoints) {
+                    if (externalSignal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
                     try {
                         const controller = new AbortController();
-                        const timeoutMs = 15000 * attempt;
+                        const timeoutMs = 12000 * attempt;
                         const timer = setTimeout(() => controller.abort(), timeoutMs);
-                        let externalListener: (() => void) | null = null;
+                        const combinedSignal = externalSignal
+                            ? new AbortController()
+                            : controller;
+
                         if (externalSignal) {
-                            if (externalSignal.aborted) {
-                                controller.abort();
-                            } else {
-                                externalListener = () => controller.abort();
-                                externalSignal.addEventListener('abort', externalListener);
-                            }
+                            const externalListener = () => combinedSignal.abort();
+                            externalSignal.addEventListener('abort', externalListener);
                         }
 
                         const resp = await fetch(url, {
                             method: 'POST',
                             body: query,
                             headers: { 'Content-Type': 'text/plain' },
-                            signal: controller.signal,
+                            signal: combinedSignal.signal,
                         });
 
                         clearTimeout(timer);
-                        if (externalSignal && externalListener) externalSignal.removeEventListener('abort', externalListener);
+
+                        if (externalSignal && externalSignal.aborted) {
+                            throw new DOMException('Aborted', 'AbortError');
+                        }
 
                         if (!resp.ok) {
                             lastError = new Error(`Overpass error: ${resp.status}`);
-                            // try next endpoint on 5xx (including 504), otherwise surface error
                             if (resp.status >= 500 && resp.status < 600) continue;
                             throw lastError;
                         }
@@ -173,12 +177,10 @@ async function runOverpass(query: string, externalSignal?: AbortSignal): Promise
                         return await resp.json() as OverpassResponse;
                     } catch (err) {
                         lastError = err;
-                        // network/timeout errors: try next endpoint
                     }
                 }
 
-                // exponential backoff between attempts
-                await new Promise((r) => setTimeout(r, 500 * attempt));
+                await new Promise((r) => setTimeout(r, 300 * attempt));
             }
 
             throw lastError || new Error('Overpass fetch failed');
@@ -191,7 +193,6 @@ function buildWaysFromOverpass(data: OverpassResponse): Way[] {
     const ways: Way[] = [];
     const elements = data.elements ?? [];
 
-    // Overpass can return geometries directly via `out geom` - prefer that.
     elements.forEach((el) => {
         try {
             if (el.type === 'way' || el.type === 'relation') {
@@ -200,7 +201,6 @@ function buildWaysFromOverpass(data: OverpassResponse): Way[] {
                 if (el.geometry && Array.isArray(el.geometry) && el.geometry.length) {
                     coords = el.geometry.map((point): [number, number] => [point.lat, point.lon]);
                 } else if (el.nodes?.length) {
-                    // fallback: map node refs to node entries (rare when using out geom)
                     const nodeMap = new Map<number, [number, number]>();
                     elements.forEach((node) => {
                         if (node.type === 'node' && node.lat !== undefined && node.lon !== undefined) {
@@ -212,9 +212,7 @@ function buildWaysFromOverpass(data: OverpassResponse): Way[] {
                     );
                 }
 
-                // skip empty geometries
                 if (coords.length) {
-                    // simplify by sampling points when very large
                     const MAX_POINTS = 800;
                     if (coords.length > MAX_POINTS) {
                         const step = Math.ceil(coords.length / MAX_POINTS);
@@ -395,7 +393,6 @@ async function geocodeLocation(locationName: string): Promise<Location | null> {
                 }
             }
 
-            const INDIA_BBOX = { south: 6.746778, west: 68.1097, north: 35.674545, east: 97.39556 };
             const indiaResult = data.find(
                 (result) =>
                     parseFloat(result.lat) >= INDIA_BBOX.south &&
@@ -425,7 +422,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     // Map State
     const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_MAP_CENTER);
     const [mapZoom, setMapZoom] = useState(8);
-    const [mapPitch, setMapPitch] = useState(60);
+    const [mapPitch, setMapPitch] = useState(0); // default 2D
     const [terrainEnabled, setTerrainEnabled] = useState(true);
     const [selectedTrek, setSelectedTrek] = useState<Trek | null>(null);
     const [elevationProfile, setElevationProfile] = useState<number[]>([]);
@@ -438,10 +435,9 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     // Logic State
     const [results, setResults] = useState<Trek[]>([]);
     const [allResults, setAllResults] = useState<Trek[]>([]);
-    const { savedTreks, savedIds, toggleTrek, isSaved } = useWishlist();
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
-    const [radius, setRadius] = useState(60);
+    const [radius, setRadius] = useState(100); // default 100km
     const trekNameFilter = '';
     const [locationSearchQuery, setLocationSearchQuery] = useState('');
     const [filters, setFilters] = useState<Filters>({
@@ -453,15 +449,72 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
     // Pending controls: user edits these then clicks Apply to set `filters` and `radius`
     const [pendingFilters, setPendingFilters] = useState<Filters>(filters);
     const [pendingRadius, setPendingRadius] = useState<number>(radius);
+
+    // Supabase bookmarks (replaces localStorage wishlist)
+    const [savedIds, setSavedIds] = useState<Set<number | string>>(new Set());
+    const [isAuthReady, setIsAuthReady] = useState(false);
+
     const latestViewedTrekId = useRef<number | string | null>(null);
     const searchAbortRef = useRef<AbortController | null>(null);
     const handleTerrainProfile = React.useCallback((profile: number[]) => setElevationProfile(profile), []);
-    // wishlist is managed by WishlistContext
-    const toggleSaveTrek = (trek: Trek) => toggleTrek({ ...trek, isSaved: !!isSaved(trek.id) });
 
-    // Shared helper: runs an Overpass query near a point, enhances each way into a Trek,
-    // and returns the list. Used by both location search and map click so the Overpass
-    // query + enhancement logic lives in one place (was duplicated before).
+    // Check auth and load bookmarks from Supabase
+    useEffect(() => {
+        let active = true;
+        const initAuth = async () => {
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                if (!active) return;
+                if (error) {
+                    console.warn('Supabase auth check failed:', error.message);
+                }
+                if (user) {
+                    loadBookmarks(user.id);
+                }
+                setIsAuthReady(true);
+            } catch (err) {
+                console.warn('Supabase auth init failed:', err);
+                setIsAuthReady(true);
+            }
+        };
+        void initAuth();
+        return () => { active = false; };
+    }, []);
+
+    const loadBookmarks = useCallback(async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('bookmarks')
+                .select('trek_id')
+                .eq('user_id', userId);
+            if (!error && data) {
+                setSavedIds(new Set(data.map((b) => b.trek_id)));
+            }
+        } catch (err) {
+            console.warn('Failed to load bookmarks:', err);
+        }
+    }, []);
+
+    const toggleSaveTrekSupabase = useCallback(async (trek: Trek) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            setStatus('Please log in to save treks.');
+            return;
+        }
+
+        const currentlySaved = savedIds.has(trek.id);
+        if (currentlySaved) {
+            await supabase.from('bookmarks').delete().eq('user_id', user.id).eq('trek_id', trek.id);
+            setSavedIds((prev) => { const next = new Set(prev); next.delete(trek.id); return next; });
+        } else {
+            await supabase.from('bookmarks').insert({ user_id: user.id, trek_id: trek.id });
+            setSavedIds((prev) => { const next = new Set(prev); next.add(trek.id); return next; });
+        }
+    }, [savedIds]);
+
+    const isSaved = (id: number | string): boolean => savedIds.has(id);
+
+    // Shared helper: runs an Overpass query near a point, enhances each way into a Trek
     async function fetchOverpassTreks({
         lat,
         lng,
@@ -531,6 +584,30 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         return result.sort((a, b) => a.distance - b.distance);
     }
 
+    // Request location permission and center map on user's approx location
+    useEffect(() => {
+        if (!navigator.geolocation) {
+            setStatus('Location is not available in this browser.');
+            return;
+        }
+        setStatus('Detecting your location...');
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => {
+                setMapCenter([coords.latitude, coords.longitude]);
+                setMapZoom(12);
+                setUserMarkerSet(true);
+                setMarkers([{ coords: [coords.latitude, coords.longitude], title: 'Your Location' }]);
+                setStatus('Location found. Searching for treks...');
+                void handleMapClick(coords.latitude, coords.longitude);
+            },
+            () => {
+                // Permission denied or unavailable — keep K2 default
+                setStatus('Using default location (K2). Allow location access to center on you.');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }, []);
+
     const searchLocationAndZoom = async (query: string) => {
         if (!query.trim()) return;
 
@@ -541,7 +618,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
             const location = await geocodeLocation(query);
             if (location) {
                 const { lat, lng } = location;
-                const INDIA_BBOX = { south: 6.746778, west: 68.1097, north: 35.674545, east: 97.39556 };
 
                 if (lat < INDIA_BBOX.south || lat > INDIA_BBOX.north || lng < INDIA_BBOX.west || lng > INDIA_BBOX.east) {
                     setStatus('⚠️ Location is outside India. Trek search is limited to Indian territory.');
@@ -551,6 +627,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
                 setMapCenter([lat, lng]);
                 setMapZoom(12);
+                setUserMarkerSet(true);
                 setMarkers([{ coords: [lat, lng], title: location.name }]);
                 setStatus(`📍 Found: ${location.name}. Searching for treks here...`);
 
@@ -579,7 +656,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                 setCircleMarkers([]);
                 setFitBounds(undefined);
 
-                const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = enhanced.slice(0, 50).map((w) => ({
+                const newPolylines: Polyline[] = enhanced.slice(0, 30).map((w) => ({
                     coords: w.coords,
                     color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                     weight: 3,
@@ -612,10 +689,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
         setMarkers([{ coords: [lat, lng], title: 'Search Location' }]);
         setUserMarkerSet(true);
-        // If user places a new marker, ensure we are not stuck in "show saved only" mode
-        if (filters.showSavedOnly) {
-            setFilters({ ...filters, showSavedOnly: false });
-        }
         setCircleMarkers([]);
         setFitBounds(undefined);
 
@@ -646,7 +719,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
             setAllResults(list);
 
-            const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = list.slice(0, 50).map((w) => ({
+            const newPolylines: Polyline[] = list.slice(0, 30).map((w) => ({
                 coords: w.coords,
                 color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                 weight: 3,
@@ -658,7 +731,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                 const closestDist = (list[0].distance / 1000).toFixed(1);
                 setStatus(`✅ Found ${list.length} trek${list.length > 1 ? 's' : ''} — Closest: ${closestDist} km away`);
             } else {
-                setStatus('❌ No treks found matching your filters. Try adjusting criteria.');
+                setStatus('❌ No treks available based on this place and current filters. Try adjusting the radius or difficulty.');
             }
             setLoading(false);
         } catch (error) {
@@ -707,7 +780,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         setSelectedTrek(trek);
         setElevationProfile([]);
 
-        const newPolylines: Array<{ coords: [number, number][]; color: string; weight?: number; opacity?: number; dashArray?: string; popup?: string; lineCap?: 'butt' | 'round' | 'square' }> = [{
+        const newPolylines: Polyline[] = [{
             coords: trek.coords,
             color: '#FFD700',
             weight: 5,
@@ -745,8 +818,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
             if (latestViewedTrekId.current === trek.id) {
                 if (routeData) {
-                    // OSRM snaps to nearest path. To ensure end-to-end connection, 
-                    // we prepend the exact marker and append the exact trailhead.
                     const routeCoords: [number, number][] = [
                         [userLatLng.lat, userLatLng.lng],
                         ...routeData.geometry.coordinates.map(([lng, lat]): [number, number] => [lat, lng]),
@@ -804,15 +875,15 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         setResults([]);
         setAllResults([]);
         setLocationSearchQuery('');
-        setRadius(60);
-        setPendingRadius(60);
+        setRadius(100);
+        setPendingRadius(100);
         setPolylines([]);
         setMarkers([]);
         setCircleMarkers([]);
         setFitBounds(undefined);
         setMapCenter(DEFAULT_MAP_CENTER);
         setMapZoom(8);
-        setMapPitch(60);
+        setMapPitch(0);
         setSelectedTrek(null);
         setElevationProfile([]);
         setTerrainEnabled(true);
@@ -876,7 +947,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         try {
             const { lat, lng, radiusKm } = opts;
 
-            // Use the RPC 'search_treks' which is optimized for PostGIS
             const { data, error } = await supabase.rpc('search_treks', {
                 p_lat: lat,
                 p_lng: lng,
@@ -888,7 +958,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                 throw error;
             }
 
-            // Map RPC result to Trek interface
             const rows = (data || []) as SearchTrekResult[];
             return rows.map((d): Trek => {
                 const trekDifficulty: Trek['difficulty'] = d.difficulty === 1 ? 'Easy' : d.difficulty === 2 ? 'Moderate' : 'Hard';
@@ -898,15 +967,12 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                 return {
                     id: d.id,
                     tags: { name: d.title, ...(d.description ? { description: d.description } : {}), ...(d.tags || {}) },
-                    // Note: The current RPC might not return 'geom' or 'lat/lng'. 
-                    // You MUST update the RPC to return lat/lng or geom to properly position markers.
-                    // Assuming d.lat/d.lng or d.geom is available or we default to search center (fallback)
                     coords,
                     distance: d.distance_m || 0,
                     difficulty: trekDifficulty,
-                    duration: d.length_km ? Math.round(d.length_km / 4) : 1, // Estimate
+                    duration: d.length_km ? Math.round(d.length_km / 4) : 1,
                     length: (d.length_km || 0) * 1000,
-                    safety: 4, // Default
+                    safety: 4,
                     popularity: 3,
                 };
             });
@@ -920,35 +986,52 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
         let cancelled = false;
 
         const doFilter = async () => {
-            // If user requested to show saved only, derive results from wishlist
+            // If user requested to show saved only, derive results from Supabase bookmarks
             if (filters.showSavedOnly) {
                 if (!cancelled) {
-                    const list: Trek[] = savedTreks.map((s) => ({
-                        id: s.id,
-                        tags: s.tags || {},
-                        coords: s.coords || [],
-                        distance: s.distance ?? Infinity,
-                        difficulty: s.difficulty === 'Easy' || s.difficulty === 'Hard' || s.difficulty === 'Moderate' ? s.difficulty : 'Moderate',
-                        duration: s.duration ?? 1,
-                        length: s.length ?? 0,
-                        safety: s.safety ?? 3,
-                        popularity: s.popularity,
-                        isSaved: true,
-                    }));
+                    const list: Trek[] = [];
+                    // Fetch bookmarked trek details from Supabase if user is authenticated
+                    if (isAuthReady && savedIds.size > 0) {
+                        try {
+                            const trekIds = Array.from(savedIds);
+                            const { data, error } = await supabase
+                                .from('treks')
+                                .select('*')
+                                .in('id', trekIds);
+                            if (!error && data) {
+                                for (const t of data) {
+                                    const coords: [number, number][] = t.geom
+                                        ? [[t.geom?.coordinates?.[1] ?? 0, t.geom?.coordinates?.[0] ?? 0]]
+                                        : [[0, 0]];
+                                    list.push({
+                                        id: t.id,
+                                        tags: { name: t.title, ...(t.description ? { description: t.description } : {}), ...(t.tags ? Object.fromEntries(t.tags.map((k: string, v: string) => [k, v])) : {}) },
+                                        coords,
+                                        distance: 0,
+                                        difficulty: t.difficulty === 1 ? 'Easy' : t.difficulty === 2 ? 'Moderate' : 'Hard',
+                                        duration: t.length_km ? Math.round(t.length_km / 4) : 1,
+                                        length: (t.length_km || 0) * 1000,
+                                        safety: 4,
+                                        isSaved: true,
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Failed to load saved treks from Supabase:', err);
+                        }
+                    }
 
                     const filtered = applyFilters(list, filters, trekNameFilter);
-                    setResults(filtered.slice(0, 50));
+                    setResults(filtered.slice(0, 30));
 
-                    // Only update polylines/markers/center when user has NOT manually set a marker
                     if (!userMarkerSet && circleMarkers.length === 0) {
-                        const resPolylines = filtered.slice(0, 50).map((w) => ({
+                        const resPolylines = filtered.slice(0, 30).map((w) => ({
                             coords: w.coords,
                             color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                             weight: 3,
                             opacity: 0.85,
                         }));
                         setPolylines(resPolylines);
-                        // If we have saved treks with coords, center the map on the first one
                         const firstWithCoords = filtered.find((f) => f.coords && f.coords.length > 0);
                         if (firstWithCoords) {
                             const firstCoord = firstWithCoords.coords[0];
@@ -968,8 +1051,6 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                 const lng = markers.length > 0 ? markers[0].coords[1] : mapCenter[1];
                 const serverResults = await fetchTreksFromSupabase({ lat, lng, radiusKm: radius });
 
-                // Only use server results if they are non-empty. 
-                // If they are empty, we fall back to OSM results (allResults).
                 if (!cancelled && serverResults && serverResults.length > 0) {
                     const withSaved = serverResults.map((trek) => ({ ...trek, isSaved: savedIds.has(trek.id) }));
                     let final = [...withSaved];
@@ -990,9 +1071,9 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                         final.sort((a, b) => diffOrder[a.difficulty] - diffOrder[b.difficulty]);
                     }
 
-                    setResults(final.slice(0, 50));
+                    setResults(final.slice(0, 30));
                     if (!userMarkerSet && circleMarkers.length === 0) {
-                        const resPolylines = final.slice(0, 50).map((w) => ({
+                        const resPolylines = final.slice(0, 30).map((w) => ({
                             coords: w.coords,
                             color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                             weight: 3,
@@ -1006,9 +1087,9 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
             if (!cancelled) {
                 const filtered = applyFilters(allResults, filters, trekNameFilter);
-                setResults(filtered.slice(0, 50));
+                setResults(filtered.slice(0, 30));
                 if (!userMarkerSet && circleMarkers.length === 0) {
-                    const resPolylines = filtered.slice(0, 50).map((w) => ({
+                    const resPolylines = filtered.slice(0, 30).map((w) => ({
                         coords: w.coords,
                         color: w.difficulty === 'Easy' ? '#2bff88' : w.difficulty === 'Moderate' ? '#4a7c4e' : '#ff4444',
                         weight: 3,
@@ -1021,7 +1102,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
 
         doFilter();
         return () => { cancelled = true; };
-    }, [filters, allResults, trekNameFilter, savedTreks, markers, mapCenter, radius, applyFilters, circleMarkers.length, fetchTreksFromSupabase, savedIds, userMarkerSet]);
+    }, [filters, allResults, trekNameFilter, savedIds, markers, mapCenter, radius, applyFilters, circleMarkers.length, fetchTreksFromSupabase, isAuthReady, userMarkerSet]);
 
     return (
         <div className={`${styles['trek-finder-bg']} ${designStyles['dark-luxury']} ${designStyles['noise']}`}>
@@ -1136,9 +1217,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                             <label>Difficulty</label>
                             <div className={styles['finder-difficulty']} role="group" aria-label="Difficulty">
                                 {['all', 'Easy', 'Moderate', 'Hard'].map((difficulty) => (
-                                    <button key={difficulty} className={pendingFilters.difficulty === difficulty ? styles['finder-difficulty-active'] : ''} onClick={() => setPendingFilters({ ...pendingFilters, difficulty })}>
-                                        {difficulty === 'all' ? 'All' : difficulty}
-                                    </button>
+                                    <button key={difficulty} className={pendingFilters.difficulty === difficulty ? styles['finder-difficulty-active'] : ''} onClick={() => setPendingFilters({ ...pendingFilters, difficulty })}>{difficulty === 'all' ? 'All' : difficulty}</button>
                                 ))}
                             </div>
                         </div>
@@ -1184,17 +1263,14 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                     <div className={styles['finder-results']}>
                         {results.length === 0 && !loading && (
                             <div className={styles['finder-empty']}>
-                                No trails yet. Search for a location or click the map to explore.
+                                No trails available based on this place and current filters. Try adjusting the radius, difficulty, or search a different location.
                             </div>
                         )}
                         {loading && (
                             <div className={styles['loading-container']}>
                                 <div className={styles['mountain-loader']}>
                                     <svg viewBox="0 0 100 100">
-                                        <path
-                                            className={styles['mountain-path']}
-                                            d="M10 80 L35 30 L50 55 L70 20 L90 80 Z"
-                                        />
+                                        <path className={styles['mountain-path']} d="M10 80 L35 30 L50 55 L70 20 L90 80 Z" />
                                     </svg>
                                     <div className={styles['scanner-line']} />
                                 </div>
@@ -1213,7 +1289,7 @@ const TrekFinder: React.FC<TrekFinderProps> = ({ onSelectTrek }) => {
                                     trek={r}
                                     name={name}
                                     isSaved={saved}
-                                    onSave={(e) => { e.stopPropagation(); toggleSaveTrek(r); }}
+                                    onSave={(e) => { e.stopPropagation(); void toggleSaveTrekSupabase(r); }}
                                     onViewRoute={() => viewRoute(r)}
                                 />
                             );
